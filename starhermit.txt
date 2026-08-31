@@ -1,0 +1,3 @@
+name=Timber Grid
+launch=index.html
+server=server.js

@@ -1,0 +1,15 @@
+{
+  "name": "timber-grid",
+  "version": "1.0.0",
+  "description": "Timber Grid — wooden polyomino puzzle for the browser",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/rules.test.js",
+    "check": "node tools/check.js",
+    "start": "node server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.170.0"
+  }
+}

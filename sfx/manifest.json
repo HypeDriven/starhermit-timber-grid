@@ -1,0 +1,80 @@
+[
+  {
+    "name": "piece-select",
+    "seconds": 1,
+    "prompt": "Short soft wooden peg click, a fingertip tapping a small hollow wood block once, dry and close.",
+    "event": "select"
+  },
+  {
+    "name": "place-thunk",
+    "seconds": 1,
+    "prompt": "Solid wooden block set firmly onto a timber board, single low knock with a brief warm decay.",
+    "event": "place"
+  },
+  {
+    "name": "place-heavy",
+    "seconds": 1,
+    "prompt": "Heavy timber plank dropped onto a wooden surface, deep resonant thump with a short rattle.",
+    "event": "place"
+  },
+  {
+    "name": "invalid-buzz",
+    "seconds": 1,
+    "prompt": "Dull rejected wooden clunk followed by a short raspy rattle, clearly negative feedback, not harsh.",
+    "event": "invalid"
+  },
+  {
+    "name": "line-clear",
+    "seconds": 1,
+    "prompt": "Single bright wooden xylophone bar strike with a clean ringing sustain, cheerful and light.",
+    "event": "clear"
+  },
+  {
+    "name": "clear-double",
+    "seconds": 2,
+    "prompt": "Two rising wooden xylophone strikes in quick succession, bright and rewarding.",
+    "event": "clear"
+  },
+  {
+    "name": "clear-triple",
+    "seconds": 2,
+    "prompt": "Three ascending wooden marimba notes in a sparkling cascade, lively celebration.",
+    "event": "clear"
+  },
+  {
+    "name": "combo-rise",
+    "seconds": 1,
+    "prompt": "Quick rising flourish on tuned wooden percussion blocks, energetic upward climb.",
+    "event": "combo"
+  },
+  {
+    "name": "combo-high",
+    "seconds": 2,
+    "prompt": "Fast ascending run across tuned wooden blocks ending on a high sparkling note, triumphant.",
+    "event": "combo"
+  },
+  {
+    "name": "undo-swipe",
+    "seconds": 1,
+    "prompt": "Soft wooden piece sliding backward across a board, gentle short scrape with a muted finish.",
+    "event": "undo"
+  },
+  {
+    "name": "pause-tick",
+    "seconds": 1,
+    "prompt": "Single muted woodblock tick, quiet neutral UI cue, very short decay.",
+    "event": "pause"
+  },
+  {
+    "name": "game-over",
+    "seconds": 3,
+    "prompt": "Two low descending wooden tones, a somber hollow knock followed by a deeper soft thud.",
+    "event": "gameOver"
+  },
+  {
+    "name": "win-fanfare",
+    "seconds": 3,
+    "prompt": "Short triumphant wooden marimba fanfare, four bright ascending notes resolving on a warm final chord.",
+    "event": "win"
+  }
+]
