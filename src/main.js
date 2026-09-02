@@ -172,6 +172,15 @@ function showModeSelect() {
   openOverlay(panel, { modal: false });
 }
 
+// Learn mode: guided tutorial session with a fixed seed so lessons are reproducible.
+function startLearn() {
+  startSession({
+    mode: 'learn',
+    seed: 424242,
+    opts: { allowUndo: true },
+  });
+}
+
 // Setup confirmation card: rules, duration, ranked, assists before commitment.
 function setupCard({ title, lines, ranked, onStart }) {
   app.screen = 'preparing';
