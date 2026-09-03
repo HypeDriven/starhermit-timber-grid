@@ -4,7 +4,7 @@
   "description": "Timber Grid — wooden polyomino puzzle for the browser",
   "type": "module",
   "scripts": {
-    "test": "node --test test/rules.test.js",
+    "test": "node --test tests/rules.test.js",
     "check": "node tools/check.js",
     "start": "node server.js"
   },
