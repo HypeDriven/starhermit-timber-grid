@@ -16,7 +16,12 @@ function lsSet(key, value) {
 }
 
 // --- server time sync (round-trip adjusted) ---------------------------------
+// /api/v1/time is the only host route guaranteed to exist; it doubles as the
+// hosting probe. Every other hosted feature degrades to a local no-op.
 let timeOffset = 0; // serverNow - clientNow, ms
+let hosted = false;
+
+export function isHosted() { return hosted; }
 
 export async function syncTime() {
   try {
@@ -28,8 +33,9 @@ export async function syncTime() {
     if (typeof data.time !== 'number') return false;
     const rtt = t1 - t0;
     timeOffset = data.time - (t0 + rtt / 2);
+    hosted = true;
     return true;
-  } catch (_) { return false; }
+  } catch (_) { hosted = false; return false; }
 }
 
 export function now() { return Date.now() + timeOffset; }
@@ -141,10 +147,11 @@ export function funnelEvent(name, data = {}) {
 }
 
 // Presence heartbeat (throttled, only while actively playing).
+// The host offers no presence route, so this is a local no-op; it never
+// issues a request.
 let lastBeat = 0;
 export async function presenceHeartbeat() {
   const t = Date.now();
   if (t - lastBeat < 30000) return;
   lastBeat = t;
-  try { await fetch(`${API_BASE}/presence`, { method: 'POST' }); } catch (_) { /* offline */ }
 }
