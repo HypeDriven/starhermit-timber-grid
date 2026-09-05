@@ -617,7 +617,7 @@ function finishRound() {
   if (sess.ranked) {
     const envelope = sessionMod.replayEnvelope(sess, content.CONTENT_VERSION);
     platform.submitScore({
-      mode: sess.mode, score: s.score, seed: s.state.seed,
+      mode: sess.mode, score: s.score, seed: s.seed,
       contentVersion: content.CONTENT_VERSION, rulesVersion: rules.RULES_VERSION,
       assists: { undo: sess.allowUndo && sess.log.some(c => c.type === 'undo') },
       durationMs: s.elapsedMs, dayKey: sess.meta.dayKey, stage: sess.meta.stage,

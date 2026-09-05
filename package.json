@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test tests/rules.test.js",
     "check": "node tools/check.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "license": "ISC",
   "dependencies": {
