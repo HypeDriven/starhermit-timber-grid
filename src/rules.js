@@ -148,7 +148,7 @@ export function drawOffer(rnd) {
 //   place:    1 point per cell placed
 //   clear:    10 points per cleared cell (unique cells)
 //   multi:    15 * k + 20 * (k - 1) when k >= 1 lines clear simultaneously
-//   combo:    25 * comboStreak (streak of consecutive placements that clear)
+//   combo:    25 * (comboStreak - 1) from the second consecutive clearing placement on
 export function scorePlacement(placedCells, clearedCellCount, lineCount, comboStreak) {
   const place = placedCells;
   const clear = clearedCellCount * 10;

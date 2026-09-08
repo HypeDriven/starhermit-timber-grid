@@ -116,6 +116,9 @@
   #board-mirror.board-visible > div { display: flex; }
   .mirror-cell { width: 34px; height: 34px; margin: 1px; background: #c9a26b; border: 1px solid #8a6a44; border-radius: 4px; }
   .mirror-cell.filled { background: #7a4a22; }
+  #board-mirror.board-visible .mirror-cell.ghost { outline: 2px solid var(--focus); outline-offset: -2px; }
+  #board-mirror.board-visible .mirror-cell.ghost-invalid { outline: 2px solid #c03030; outline-offset: -2px; }
+  #board-mirror.board-visible .mirror-cell.cursor { box-shadow: 0 0 0 2px var(--accent); }
   #board-mirror:not(.board-visible) .mirror-cell { width: 1px; height: 1px; padding: 0; border: 0; }
 
   /* Compact: rails become less intrusive; portrait: tray is the thumb zone. */

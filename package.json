@@ -9,8 +9,11 @@
     "start": "node server.js",
     "test:e2e": "node tests/e2e.mjs"
   },
-  "license": "ISC",
+  "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
     "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

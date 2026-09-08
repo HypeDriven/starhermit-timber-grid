@@ -21,6 +21,7 @@ let app = {
   tutorialStep: 0,
   pausedAccum: 0,
   pauseStart: 0,
+  elapsedBase: 0, // play time carried over from a restored snapshot
   webgl: false,
   releaseTrap: null,
   setupConfig: null, // pending mode setup
@@ -66,6 +67,8 @@ async function boot() {
   requestAnimationFrame(loop);
   platform.funnelEvent('start');
   showTitle();
+  // The shell is built; assistive tech should stop treating it as loading.
+  document.getElementById('app').setAttribute('aria-busy', 'false');
 }
 
 function showCompatNotice() {
@@ -138,7 +141,8 @@ function showTitle() {
 
   const prog = app.progression;
   const daily = content.dailySeed(platform.syncedDate());
-  const dailyDone = (platform.loadProgression().bests.daily || {}).dayKey === daily.dayKey;
+  // Daily bests are keyed `daily:<dayKey>` (see finishRound).
+  const dailyDone = !!platform.loadProgression().bests[`daily:${daily.dayKey}`];
   const resumeSnap = loadDailySnapshot();
 
   const panel = el('section', { class: 'panel title-panel', 'aria-labelledby': 'title-h' }, [
@@ -288,8 +292,10 @@ function startSession(cfg) {
   app.session = sessionMod.createSession(cfg);
   app.selectedPiece = 0;
   app.cursor = [4, 4];
+  app.dragging = null;
   app.tutorialStep = 0;
   app.pausedAccum = 0;
+  app.elapsedBase = 0;
   render.setTheme(activeTheme());
   closeOverlay();
   document.getElementById('btn-pause').style.display = '';
@@ -305,13 +311,36 @@ function startSession(cfg) {
 
 function resumeDaily(snap) {
   app.session = sessionMod.restore(snap);
+  app.selectedPiece = app.session.state.offer.findIndex(p => p);
+  if (app.selectedPiece < 0) app.selectedPiece = 0;
+  app.cursor = [4, 4];
+  app.dragging = null;
+  app.pausedAccum = 0;
+  // Keep the persisted play time; the restored session restarts its own clock.
+  app.elapsedBase = app.session.state.elapsedMs || 0;
   closeOverlay();
   document.getElementById('btn-pause').style.display = '';
   app.screen = 'active';
   render.setTheme(activeTheme());
+  audio.resume();
+  audio.startAmbience();
   renderAll();
+  updateGhost();
   renderRails('daily');
   announce(t('resume'));
+}
+
+// Restart the round that is currently loaded, with its original configuration.
+function restartRound() {
+  const s = app.session;
+  if (!s) return;
+  startSession({
+    mode: s.mode,
+    seed: s.state.seed,
+    opts: { moveLimit: s.state.moveLimit, goalScore: s.state.goalScore, allowUndo: s.allowUndo },
+    meta: s.meta,
+  });
+  platform.funnelEvent('retry');
 }
 
 function objectiveText() {
@@ -328,7 +357,9 @@ function pauseGame(reason) {
   if (app.screen !== 'active' || !app.session) return;
   app.screen = 'paused';
   app.pauseStart = Date.now();
+  app.dragging = null;
   audio.play.pause();
+  audio.stopAmbience(); // the bed should not keep running behind the pause card
   showPause();
 }
 
@@ -337,19 +368,16 @@ function resumeGame() {
   app.pausedAccum += Date.now() - app.pauseStart;
   app.screen = 'active';
   closeOverlay();
+  audio.resume();
+  audio.startAmbience();
+  updateGhost();
 }
 
 function showPause() {
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'pause-h' }, [
     el('h2', { id: 'pause-h', text: t('pause') }),
     menuButton(t('resume'), () => resumeGame(), { primary: true }),
-    menuButton(t('restart'), () => {
-      const s = app.session;
-      startSession({ mode: s.mode, seed: s.state.seed, opts: {
-        moveLimit: s.state.moveLimit, goalScore: s.state.goalScore, allowUndo: s.allowUndo,
-      }, meta: s.meta });
-      platform.funnelEvent('retry');
-    }),
+    menuButton(t('restart'), () => restartRound()),
     menuButton(t('settings'), () => showSettings(() => showPause())),
     menuButton(t('help'), () => showHelp(() => showPause())),
     menuButton(t('backToTitle'), () => endToTitle()),
@@ -445,9 +473,13 @@ function updateTray() {
   });
 }
 
+let mirrorCells = [];
+let mirrorMarked = []; // cells currently carrying cursor/ghost marks
 function updateMirror() {
   const s = app.session.state;
   mirrorEl.innerHTML = '';
+  mirrorCells = [];
+  mirrorMarked = []; // the previous cells are detached now
   for (let r = 0; r < rules.N; r++) {
     const rowEl = el('div', { role: 'row' });
     for (let c = 0; c < rules.N; c++) {
@@ -459,9 +491,34 @@ function updateMirror() {
         tabindex: '-1',
         onclick: () => { app.cursor = [r, c]; tryPlace(); },
       });
+      mirrorCells[r * rules.N + c] = cell;
       rowEl.appendChild(cell);
     }
     mirrorEl.appendChild(rowEl);
+  }
+  updateMirrorCursor();
+}
+
+// Mirror the placement target into the accessible board so keyboard and
+// no-WebGL players can see and hear where the piece would land.
+function updateMirrorCursor(cells, valid) {
+  if (!mirrorCells.length) return;
+  // Clear only what was marked last time; this runs on every pointer move.
+  for (const cell of mirrorMarked) {
+    cell.classList.remove('cursor', 'ghost', 'ghost-invalid');
+    cell.removeAttribute('aria-current');
+  }
+  mirrorMarked = [];
+  for (const [r, c] of cells || []) {
+    if (r < 0 || r >= rules.N || c < 0 || c >= rules.N) continue;
+    const cell = mirrorCells[r * rules.N + c];
+    if (cell) { cell.classList.add(valid ? 'ghost' : 'ghost-invalid'); mirrorMarked.push(cell); }
+  }
+  const target = mirrorCells[app.cursor[0] * rules.N + app.cursor[1]];
+  if (target) {
+    target.classList.add('cursor');
+    target.setAttribute('aria-current', 'location');
+    mirrorMarked.push(target);
   }
 }
 
@@ -479,11 +536,11 @@ function renderRails(mode) {
       el('p', { text: `${t('stage')} ${app.progression.journeyStage} / ${content.STAGES.length}` }),
     ]));
   }
+  // Pause lives in the status bar and offers Restart; the rail keeps in-play aids.
   const undoOk = app.session && app.session.allowUndo;
   rightRail.appendChild(el('div', { class: 'rail-block actions' }, [
     el('button', { class: 'chip-btn', text: t('hint'), onclick: () => showHint() }),
     undoOk ? el('button', { class: 'chip-btn', text: t('undo'), onclick: () => doUndo() }) : null,
-    el('button', { class: 'chip-btn', text: t('restart'), onclick: () => pauseGame('user') }),
   ]));
 }
 
@@ -498,14 +555,25 @@ function selectPiece(i) {
   updateGhost();
 }
 
+// Cycle to the next offered piece that has not been consumed yet.
+function selectNextPiece() {
+  if (!app.session) return;
+  const offer = app.session.state.offer;
+  for (let step = 1; step <= offer.length; step++) {
+    const i = (app.selectedPiece + step) % offer.length;
+    if (offer[i]) { selectPiece(i); return; }
+  }
+}
+
 function updateGhost() {
-  if (!app.session || app.screen !== 'active') { render.setGhost(null); return; }
+  if (!app.session || app.screen !== 'active') { render.setGhost(null); updateMirrorCursor(null); return; }
   const s = app.session.state;
   const shapeId = s.offer[app.selectedPiece];
-  if (!shapeId) { render.setGhost(null); return; }
+  if (!shapeId) { render.setGhost(null); updateMirrorCursor(null); return; }
   const cells = rules.shapeCells(shapeId, app.cursor[0], app.cursor[1]);
   const valid = rules.canPlace(s.board, shapeId, app.cursor[0], app.cursor[1]);
   render.setGhost(cells, valid);
+  updateMirrorCursor(cells, valid);
 }
 
 function tryPlace() {
@@ -530,7 +598,7 @@ function tryPlace() {
 
 function handlePlacement(events) {
   const s = app.session.state;
-  s.elapsedMs = Date.now() - app.session.startedAt - app.pausedAccum;
+  s.elapsedMs = app.elapsedBase + (Date.now() - app.session.startedAt - app.pausedAccum);
   audio.play.place();
   haptic();
   if (events.lineCount > 0) {
@@ -644,7 +712,7 @@ function finishRound() {
         opts: { moveLimit: s.moveLimit, goalScore: s.goalScore, allowUndo: sess.allowUndo }, meta: sess.meta });
       platform.funnelEvent('retry');
     }, { primary: true }),
-    sess.mode === 'journey' && won && app.progression.journeyStage <= content.STAGES.length
+    sess.mode === 'journey' && won && sess.meta.stage < content.STAGES.length
       ? menuButton(t('nextStage'), () => setupJourney(app.progression.journeyStage)) : null,
     menuButton(t('scores'), () => showScores()),
     menuButton(t('backToTitle'), () => endToTitle()),
@@ -787,6 +855,13 @@ function wireInput() {
       if (!app.dragging) tryPlace(); // tap-to-place with selected piece
     }
   });
+  // A tray drag captures the pointer on the tray button, so the canvas never
+  // sees pointermove; track the drag at the window so the ghost follows it.
+  window.addEventListener('pointermove', e => {
+    if (!app.dragging || app.screen !== 'active') return;
+    const cell = render.pickCell(e.clientX, e.clientY, canvas.getBoundingClientRect());
+    if (cell) { app.cursor = cell; updateGhost(); }
+  });
   window.addEventListener('pointerup', e => {
     if (app.dragging) {
       const cell = render.pickCell(e.clientX, e.clientY, canvas.getBoundingClientRect());
@@ -801,6 +876,7 @@ function wireInput() {
 }
 
 function onKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts alone
   if (app.screen === 'active') {
     const k = e.key;
     if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
@@ -827,7 +903,9 @@ function onKey(e) {
       onResize(); // camera reset
     }
   } else if (app.screen === 'paused' && (e.key === 'Escape' || e.key === 'p' || e.key === 'P')) {
-    resumeGame();
+    // Only resume when the pause card itself is showing; settings/help opened
+    // from it are nested overlays and must not be dismissed into play.
+    if (document.getElementById('pause-h')) resumeGame();
   }
 }
 
@@ -851,7 +929,7 @@ function pollGamepad() {
   if (edge(12)) moveCursor(-1, 0);
   if (edge(13)) moveCursor(1, 0);
   if (edge(0)) tryPlace();
-  if (edge(1)) selectPiece((app.selectedPiece + 1) % 3);
+  if (edge(1)) selectNextPiece();
   if (edge(9)) pauseGame('user');
   gpPrev = { ...now, 0: pressed(0), 1: pressed(1), 9: pressed(9), 12: pressed(12), 13: pressed(13), 14: pressed(14), 15: pressed(15) };
 }

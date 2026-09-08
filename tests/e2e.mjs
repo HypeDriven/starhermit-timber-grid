@@ -199,9 +199,15 @@ async function placeOnePiece(page, state, rect) {
     await page.mouse.move(cx, cy);
     await page.mouse.down();
     await page.mouse.up();
-    await page.waitForTimeout(60);
-    const after = await readState(page);
-    if (after.score > before) return after;
+    // Wait for the HUD score to actually rise rather than sampling after a
+    // fixed delay: a slow frame would otherwise look like a rejected placement
+    // and send us on to a second candidate, double-placing.
+    const landed = await page.waitForFunction(
+      (n) => parseInt((document.getElementById('hud-score')?.textContent || '').replace(/[^0-9]/g, ''), 10) > n,
+      before,
+      { timeout: 2000 },
+    ).then(() => true, () => false);
+    if (landed) return await readState(page);
   }
   return null;
 }

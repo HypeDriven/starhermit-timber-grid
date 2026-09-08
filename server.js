@@ -161,7 +161,9 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/') p = '/index.html';
     const file = path.normalize(path.join(ROOT, p));
-    if (!file.startsWith(ROOT)) { send(res, 403, 'forbidden'); return; }
+    // Containment must compare on a path boundary; a bare prefix check would
+    // also accept sibling directories such as <ROOT>-backup.
+    if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { send(res, 403, 'forbidden'); return; }
     // node_modules IS served (offline-local three.js); dotfiles/secrets are not.
     const rel = path.relative(ROOT, file);
     if (rel.split(path.sep).some(seg => seg.startsWith('.'))) { send(res, 404, 'not found'); return; }

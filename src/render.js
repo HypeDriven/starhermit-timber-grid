@@ -181,7 +181,17 @@ export function setTheme(t) {
 }
 
 export function setPalette(p) { palette = p; if (theme) setTheme(theme); }
-export function setQuality(q) { quality = q === 'auto' ? 'medium' : q; }
+export function setQuality(q) {
+  quality = QUALITY_TIERS[q] ? q : 'medium';
+  if (!renderer) return;
+  // Apply the tier immediately; otherwise the setting only took effect on reload.
+  const tier = QUALITY_TIERS[quality];
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, tier.pixelRatioCap));
+  renderer.shadowMap.enabled = tier.shadows;
+  if (keyLight) keyLight.castShadow = tier.shadows;
+  scene.traverse(o => { if (o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; });
+  if (lastSize) resize(lastSize.w, lastSize.h); // re-apply the pixel ratio to the buffer
+}
 export function setReducedMotion(v) { reducedMotion = !!v; }
 
 function positionCamera(aspect) {
@@ -191,8 +201,10 @@ function positionCamera(aspect) {
   camera.lookAt(0, FRAMING.cameraTargetY, 0.4);
 }
 
+let lastSize = null;
 export function resize(w, h) {
   if (!renderer) return;
+  lastSize = { w, h };
   renderer.setSize(w, h, false);
   camera.aspect = w / Math.max(1, h);
   camera.updateProjectionMatrix();

@@ -39,10 +39,17 @@ for (const key of ['launch', 'server']) {
     console.log(`OK   starhermit ${key}=${meta[key]}`);
   }
 }
-if (!fs.existsSync(path.join(ROOT, 'node_modules/three/build/three.module.js'))) {
-  console.error('FAIL local three.js module missing'); failed = true;
+// index.html's import map resolves "three" to ./vendor/three.module.js, which is
+// committed; node_modules is not, so the vendored copy is what must exist.
+if (!fs.existsSync(path.join(ROOT, 'vendor/three.module.js'))) {
+  console.error('FAIL vendored three.js module missing'); failed = true;
 } else {
-  console.log('OK   local three.js present');
+  console.log('OK   vendored three.js present');
+}
+if (!fs.existsSync(path.join(ROOT, 'LICENSE.md'))) {
+  console.error('FAIL LICENSE.md missing'); failed = true;
+} else {
+  console.log('OK   LICENSE.md present');
 }
 
 process.exit(failed ? 1 : 0);
