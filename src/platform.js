@@ -51,8 +51,8 @@ const DEFAULT_SETTINGS = {
   colorPalette: 'standard', // standard | deuteranopia | protanopia | tritanopia
   largeText: false,
   leftHanded: false,
-  holdToDrag: false, // hold vs toggle pick-up
-  timingAssist: false,
+  holdToDrag: true, // hold vs toggle pick-up; hold preserves the default drag-release placement
+  timingAssist: false, // no timed mechanics exist, kept as a declared player override
   haptics: true,
   muted: false,
   volMusic: 0.5, volEffects: 0.8, volAmbience: 0.4, volVoice: 0,

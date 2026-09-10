@@ -191,7 +191,7 @@ function setupCard({ title, lines, ranked, onStart }) {
   const panel = el('section', { class: 'panel', 'aria-labelledby': 'setup-h' }, [
     el('h2', { id: 'setup-h', text: title }),
     el('p', { text: t('rulesSummary') }),
-    el('ul', {}, lines.map(l => el('li', { text: l }))),
+    el('ul', {}, lines.filter(Boolean).map(l => el('li', { text: l }))),
     el('p', { class: 'ranked-line', text: ranked ? t('ranked') : t('unranked') }),
     menuButton(t('start'), onStart, { primary: true }),
     menuButton(t('back'), () => showModeSelect()),
@@ -202,8 +202,9 @@ function setupCard({ title, lines, ranked, onStart }) {
 function setupJourney(stageIdx) {
   const stage = content.STAGES[Math.min(stageIdx, content.STAGES.length) - 1];
   setupCard({
-    title: `${t('journey')} — ${t('stage')} ${stage.index} (${t(stage.difficulty)})`,
+    title: `${t('journey')} — ${t('stage')} ${stage.index} (${t(stage.difficulty)})` + (stage.mastery ? ` — ${t('mastery')}` : ''),
     lines: [
+      stage.mastery ? t('masteryStage') : null,
       `${t('goal')}: ${stage.goalScore}`,
       `${t('moves')}: ${stage.moveLimit}`,
       `${t('par')}: ${stage.par}`,
@@ -464,10 +465,13 @@ function updateTray() {
     }, [piecePreview(rules.SHAPES[shapeId], activeTheme().piece)]);
     btn.dataset.pieceIndex = String(i);
     // Pointer drag starts here; cell targeting happens over the canvas.
+    // With hold-to-drag off the tray is tap-to-select only (toggle pick-up).
     btn.addEventListener('pointerdown', e => {
       selectPiece(i);
-      app.dragging = { pieceIndex: i, pointerId: e.pointerId };
-      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      if (app.settings.holdToDrag) {
+        app.dragging = { pieceIndex: i, pointerId: e.pointerId };
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+      }
     });
     trayEl.appendChild(btn);
   });
@@ -698,6 +702,7 @@ function finishRound() {
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'res-h' }, [
     el('h2', { id: 'res-h', text: won ? t('stageClear') : t('gameOver') }),
     el('p', { class: 'reason', text: `${t('reason')}: ${reasonText(s.terminalReason)}` }),
+    el('p', { class: 'reason', text: `${t('journey')}: ${t('stage')} ${app.progression.journeyStage} / ${content.STAGES.length}` }),
     el('p', { class: 'big-score', text: `${t('score')}: ${s.score}` }),
     el('h3', { text: t('breakdown') }),
     el('table', { class: 'score-table' }, [
@@ -787,6 +792,8 @@ function showSettings(onBack) {
     row(t('highContrast'), toggle('highContrast')),
     row(t('largeText'), toggle('largeText')),
     row(t('leftHanded'), toggle('leftHanded')),
+    row(t('holdToDrag'), toggle('holdToDrag')),
+    row(t('haptics'), toggle('haptics')),
     row(t('music'), slider('volMusic', 'music')),
     row(t('effects'), slider('volEffects', 'effects')),
     row(t('ambience'), slider('volAmbience', 'ambience')),
