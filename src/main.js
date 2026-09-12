@@ -44,7 +44,11 @@ async function boot() {
   buildShell();
   applySettingsToAudio();
   setLang(app.settings.lang);
-  await platform.syncTime(); // daily boundaries sync with host time when hosted
+  await platform.init(); // reads/strips the launch token, pulls cloud progress
+  app.progression = platform.loadProgression(); // remote doc wins when present
+  platform.onSyncChange(() => updatePlayerChip());
+  updatePlayerChip();
+  await platform.syncTime(); // daily boundaries sync with host time when reachable
 
   const errors = content.validateContent();
   if (errors.length) console.error('content validation failed', errors);
@@ -100,6 +104,7 @@ function buildShell() {
     hudEls.score = el('div', { id: 'hud-score', class: 'hud-chip', role: 'status' }),
     hudEls.combo = el('div', { id: 'hud-combo', class: 'hud-chip', role: 'status' }),
     hudEls.pauseBtn = el('button', { id: 'btn-pause', class: 'chip-btn', text: t('pause'), onclick: () => pauseGame('user') }),
+    hudEls.player = el('div', { id: 'hud-player', class: 'hud-chip', role: 'status' }),
   ]);
 
   canvas = el('canvas', { id: 'gl', 'aria-hidden': 'true' });
@@ -268,24 +273,44 @@ function showScores() {
   app.screen = 'scores';
   const board = platform.getLeaderboard();
   const prog = platform.loadProgression();
+  const hostedBox = el('div', {});
   const panel = el('section', { class: 'panel', 'aria-labelledby': 'scores-h' }, [
     el('h2', { id: 'scores-h', text: t('scores') }),
     el('h3', { text: t('leaderboard') }),
     board.length
       ? el('table', { class: 'score-table' }, [
-          el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('score') }), el('th', { text: 'Mode' }), el('th', { text: 'Seed' })]),
+          el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('score') }), el('th', { text: 'Mode' }), el('th', { text: 'Seed' }), el('th', { text: t('player') })]),
           ...board.slice(0, 10).map((e, i) => el('tr', {}, [
             el('td', { text: String(i + 1) }), el('td', { text: String(e.score) }),
             el('td', { text: e.mode }), el('td', { text: String(e.seed) }),
+            el('td', { text: e.player || '—' }),
           ])),
         ])
       : el('p', { text: '—' }),
+    hostedBox,
     el('h3', { text: t('achievements') }),
     el('ul', {}, platform.ACHIEVEMENTS.map(a =>
       el('li', { text: `${prog.achievements[a.key] ? '✓' : '○'} ${a.name} — ${a.description}` }))),
     menuButton(t('back'), () => showModeSelect()),
   ]);
   openOverlay(panel, { modal: false });
+
+  // Hosted board is read-only; without a leaderboardId the local records above
+  // are the whole story.
+  if (platform.isHosted()) {
+    platform.getHostedBoard().then((hb) => {
+      if (!hb || !hb.entries.length || app.screen !== 'scores') return;
+      hostedBox.append(
+        el('h3', { text: t('globalBoard') }),
+        el('table', { class: 'score-table' }, [
+          el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('player') }), el('th', { text: t('score') })]),
+          ...hb.entries.map(e => el('tr', {}, [
+            el('td', { text: String(e.rank) }), el('td', { text: e.name }), el('td', { text: String(e.score) }),
+          ])),
+        ]),
+      );
+    });
+  }
 }
 
 // ---------------------------------------------------------------- session control
@@ -307,7 +332,6 @@ function startSession(cfg) {
   renderRails(cfg.mode);
   if (cfg.mode === 'learn') showTutorialCard();
   else announce(t('objective') + ': ' + objectiveText());
-  platform.presenceHeartbeat();
 }
 
 function resumeDaily(snap) {
@@ -448,6 +472,15 @@ function updateHud() {
   hudEls.objective.textContent = s ? objectiveText() : '';
   hudEls.score.textContent = s ? `${t('score')}: ${s.score}` : '';
   hudEls.combo.textContent = s && s.comboStreak > 1 ? `${t('comboStreak')} ×${s.comboStreak}` : '';
+  updatePlayerChip();
+}
+
+// Profile/sync chip: the platform nickname when hosted, local guest otherwise.
+function updatePlayerChip() {
+  if (!hudEls.player) return;
+  const name = platform.playerName();
+  const state = platform.getSyncState();
+  hudEls.player.textContent = state === 'offline' ? name : `${name} · ${t('sync' + state[0].toUpperCase() + state.slice(1))}`;
 }
 
 function updateTray() {
@@ -820,6 +853,7 @@ function applySettings() {
   document.body.classList.toggle('large-text', s.largeText);
   document.body.classList.toggle('left-handed', s.leftHanded);
   applySettingsToAudio();
+  updatePlayerChip();
 }
 
 function applySettingsToAudio() {

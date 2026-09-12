@@ -37,6 +37,8 @@ export const I18N = {
     mastery: 'Mastery', masteryStage: 'Mastery stage — reach the goal to prove your skill.',
     selectPiece: 'Select piece', trayLabel: 'Piece tray',
     boardLabel: 'Game board, 9 by 9', objective: 'Objective',
+    player: 'Player', globalBoard: 'Global board',
+    syncSaving: 'Saving…', syncSynced: 'Saved', syncError: 'Sync failed',
   },
   zh: {
     title: 'Timber Grid', play: '开始游戏', tagline: '摆放木块，消除整行、整列和 3×3 区域。',
@@ -74,6 +76,8 @@ export const I18N = {
     mastery: '精通', masteryStage: '精通关卡——达成目标，证明你的技巧。',
     selectPiece: '选择方块', trayLabel: '方块托盘',
     boardLabel: '游戏棋盘，9×9', objective: '目标',
+    player: '玩家', globalBoard: '全球排行',
+    syncSaving: '保存中…', syncSynced: '已保存', syncError: '同步失败',
   },
 };
 
