@@ -49,6 +49,10 @@
   .rail-block.actions { display: flex; gap: 0.5rem; }
   .tutorial-card { background: var(--panel2); border-left: 3px solid var(--accent); border-radius: 0.4rem; padding: 0.6rem 0.7rem; pointer-events: auto; }
   .tutorial-card p { margin: 0.3rem 0 0; font-size: 0.9rem; }
+  .tutorial-card .tutorial-toggle { margin-top: 0.4rem; min-height: 36px; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+  .tutorial-card.collapsed p { display: none; }
+  .tutorial-card.collapsed { display: flex; gap: 0.5rem; align-items: center; }
+  .tutorial-card.collapsed .tutorial-toggle { margin-top: 0; }
 
   button { font: inherit; color: inherit; cursor: pointer; }
   .chip-btn {
@@ -123,10 +127,27 @@
 
   /* Compact: rails become less intrusive; portrait: tray is the thumb zone. */
   @media (max-width: 1023px) {
-    .rail { width: auto; max-width: 60vw; position: absolute; top: 0.4rem; }
-    #rail-left { left: 0.4rem; }
-    #rail-right { right: 0.4rem; top: auto; bottom: 0.4rem; flex-direction: row; }
+    /* Rails become bands: objective/tutorial across the top, actions across
+       the bottom; the board is framed between them (see safeInsets). */
+    .rail { width: auto; max-width: none; position: absolute; left: 0.4rem; right: 0.4rem; top: 0.4rem; flex-direction: row; flex-wrap: wrap; gap: 0.4rem; align-items: flex-start; }
+    #rail-right { top: auto; bottom: 0.4rem; justify-content: flex-end; }
     .rail-block { font-size: 0.85rem; padding: 0.45rem 0.55rem; }
+    /* the status bar already shows the objective; the rail copy is redundant here */
+    .rail-block.rail-objective { display: none; }
+    .tutorial-card { flex: 1 1 100%; }
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    /* one-line status bar; the objective chip truncates rather than wrapping */
+    #statusbar { flex-wrap: nowrap; padding-top: calc(0.2rem + var(--sat)); padding-bottom: 0.2rem; min-height: 2.2rem; }
+    .brand { display: none; }
+    #hud-objective { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #hud-player { display: none; }
+    /* rails become side columns so the board keeps the middle */
+    #rail-left { right: auto; max-width: 38vw; flex-direction: column; }
+    #rail-right { left: auto; top: 0.4rem; bottom: auto; flex-direction: column; align-items: flex-end; }
+    .rail-block.actions { flex-direction: column; }
+    .tutorial-card { flex: 0 0 auto; max-width: 38vw; font-size: 0.85rem; padding: 0.4rem 0.6rem; }
+    .tutorial-card p { font-size: 0.82rem; }
   }
   @media (orientation: portrait) {
     #tray { min-height: 6rem; }

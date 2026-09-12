@@ -53,6 +53,13 @@ const _ndc = new THREE.Vector2();
 
 function hex(c) { return new THREE.Color(c); }
 
+let camDist = FRAMING.cameraDistance;
+function applyFog() {
+  if (!scene || !scene.fog) return;
+  scene.fog.near = camDist * 1.35;
+  scene.fog.far = camDist * 2.5;
+}
+
 function cellCenter(row, col) {
   const s = FRAMING.cellSize;
   return { x: (col - (N - 1) / 2) * s, z: (row - (N - 1) / 2) * s };
@@ -169,6 +176,7 @@ export function setTheme(t) {
   const pal = COLOR_PALETTES[palette] || {};
   scene.background = hex(t.bg);
   scene.fog = new THREE.Fog(hex(t.bg), 18, 34);
+  applyFog();
   benchGroup.children[0].material.color = hex(t.bench);
   cellMesh.material.color = hex(t.board);
   fillMesh.material.color = hex(pal.piece || t.piece);
@@ -194,19 +202,65 @@ export function setQuality(q) {
 }
 export function setReducedMotion(v) { reducedMotion = !!v; }
 
+// Camera distance found by projection: pull back from the authored distance
+// until every board corner (including piece height) sits inside the framed
+// rectangle, at any aspect ratio.
 function positionCamera(aspect) {
   const pitch = THREE.MathUtils.degToRad(FRAMING.cameraPitchDeg);
-  const d = FRAMING.cameraDistance / Math.min(1, aspect * 1.15);
+  const half = (N * FRAMING.cellSize) / 2 + FRAMING.cellSize * 0.35;
+  const pts = [];
+  for (const x of [-half, half]) for (const z of [-half, half]) for (const y of [0, FRAMING.pieceHeight + FRAMING.cellHeight])
+    pts.push(new THREE.Vector3(x, y, z));
+  const probe = new THREE.PerspectiveCamera(FRAMING.cameraFov, aspect, 0.1, 100);
+  const v = new THREE.Vector3();
+  let d = FRAMING.cameraDistance * 0.75;
+  for (let i = 0; i < 14; i++) {
+    probe.position.set(0, Math.sin(pitch) * d, Math.cos(pitch) * d * 0.9);
+    probe.lookAt(0, FRAMING.cameraTargetY, 0.4);
+    probe.updateMatrixWorld();
+    probe.updateProjectionMatrix();
+    let over = 0;
+    for (const q of pts) { v.copy(q).project(probe); over = Math.max(over, Math.abs(v.x) / 0.94, Math.abs(v.y) / 0.92); }
+    if (over <= 1) break;
+    d *= Math.min(1.6, over + 0.02);
+  }
   camera.position.set(0, Math.sin(pitch) * d, Math.cos(pitch) * d * 0.9);
   camera.lookAt(0, FRAMING.cameraTargetY, 0.4);
 }
 
+/** Client-space centre of a board cell under the live camera (tests/tools). */
+export function cellToClient(row, col) {
+  if (!camera || !renderer) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const { x, z } = cellCenter(row, col);
+  camera.updateMatrixWorld();
+  const v = new THREE.Vector3(x, FRAMING.cellHeight / 2, z).project(camera);
+  return { cx: rect.left + (v.x + 1) / 2 * rect.width, cy: rect.top + (1 - v.y) / 2 * rect.height };
+}
+
+/** Camera/frame diagnostics for tests and tools. */
+export function cameraInfo() {
+  return { pos: camera ? camera.position.toArray() : null, view: camera && camera.view ? { ...camera.view } : null, size: lastSize, insets: lastInsets };
+}
+
 let lastSize = null;
-export function resize(w, h) {
+let lastInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+export function resize(w, h, insets) {
   if (!renderer) return;
   lastSize = { w, h };
+  if (insets) lastInsets = insets;
   renderer.setSize(w, h, false);
-  camera.aspect = w / Math.max(1, h);
+  // Frame the board inside the part of the canvas not covered by rails/cards
+  // (view offset); fall back to the whole canvas when they cover too much.
+  const ins = lastInsets;
+  const sw = Math.max(1, w - ins.left - ins.right), sh = Math.max(1, h - ins.top - ins.bottom);
+  if (sw < w * 0.45 || sh < h * 0.45) {
+    camera.aspect = w / Math.max(1, h);
+    camera.clearViewOffset();
+  } else {
+    camera.aspect = sw / sh;
+    camera.setViewOffset(sw, sh, -ins.left, -ins.top, w, h);
+  }
   camera.updateProjectionMatrix();
   positionCamera(camera.aspect);
 }

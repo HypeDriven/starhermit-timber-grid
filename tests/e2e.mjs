@@ -162,7 +162,7 @@ const canvasRect = (page) => page.evaluate(() => {
 // central region of the canvas (the small portrait canvas clips edge cells off
 // screen, and central-cell projections are the most reliable on a touchscreen).
 // Returns every such candidate in preference order.
-function nextMobileMoves(state, rect) {
+function nextMobileMoves(state, rect, live) {
   const lhs = rect.left + 0.15 * rect.width, rhs = rect.left + 0.85 * rect.width;
   const top = rect.top + 0.15 * rect.height, bottom = rect.top + 0.85 * rect.height;
   const isCentral = (cx, cy) => cx > lhs && cx < rhs && cy > top && cy < bottom;
@@ -173,7 +173,7 @@ function nextMobileMoves(state, rect) {
     for (let r = 0; r < N; r++) {
       for (let c = 0; c < N; c++) {
         if (!rules.canPlace(state.board, shape, r, c)) continue;
-        const { cx, cy } = cellToClient(rect, r, c);
+        const { cx, cy } = (live && live[r * N + c]) || cellToClient(rect, r, c);
         if (isCentral(cx, cy)) out.push({ pi: +pi, r, c, cx, cy });
       }
     }
@@ -195,7 +195,9 @@ async function placeOnePiece(page, state, rect) {
     if (!exists) continue;
     const before = (await readState(page)).score;
     await page.click(`#tray .tray-piece[data-piece-index="${mv.pi}"]`);
-    const { cx, cy } = cellToClient(rect, mv.r, mv.c);
+    // the renderer fits the camera to the viewport and HUD, so ask it where
+    // the cell is rather than reconstructing a fixed camera here
+    const { cx, cy } = (await page.evaluate(([r, c]) => window.__tgCellToClient(r, c), [mv.r, mv.c])) || cellToClient(rect, mv.r, mv.c);
     await page.mouse.move(cx, cy);
     await page.mouse.down();
     await page.mouse.up();
@@ -414,7 +416,13 @@ async function runPass(browser, name, ctxOpts, { full }) {
       for (let i = 0; i < 6; i++) {
         const st = await readState(page);
         const rect = await canvasRect(page);
-        const cands = nextMobileMoves(st, rect);
+        // live projected cell centres from the fitted camera
+        const live = await page.evaluate((n) => {
+          const out = [];
+          for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) out.push(window.__tgCellToClient(r, c));
+          return out;
+        }, N);
+        const cands = nextMobileMoves(st, rect, live);
         if (!cands.length) break;
         let ok = false;
         for (const mv of cands) {

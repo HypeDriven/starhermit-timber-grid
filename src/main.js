@@ -68,6 +68,9 @@ async function boot() {
   });
 
   wireInput();
+  watchRailSizes();
+  window.__tgCamera = () => render.cameraInfo();
+  window.__tgCellToClient = (r, c) => render.cellToClient(r, c);
   requestAnimationFrame(loop);
   platform.funnelEvent('start');
   showTitle();
@@ -84,7 +87,46 @@ function showCompatNotice() {
 function onResize() {
   const region = document.getElementById('game-region');
   const r = region.getBoundingClientRect();
-  render.resize(Math.max(1, r.width), Math.max(1, r.height));
+  render.resize(Math.max(1, r.width), Math.max(1, r.height), safeInsets(r));
+}
+
+// Bands of the game region covered by the rails (objective/tutorial at the
+// top-left, actions at the bottom-right on compact layouts; side columns on
+// wide ones). The renderer frames the board inside what is left.
+function safeInsets(r) {
+  const ins = { top: 0, bottom: 0, left: 0, right: 0 };
+  const carve = (el) => {
+    if (!el || !el.children.length) return;
+    const b = el.getBoundingClientRect();
+    if (!b.width || !b.height) return;
+    const x = b.left - r.left, y = b.top - r.top;
+    const wide = b.width > r.width * 0.5;
+    const tall = b.height > r.height * 0.5;
+    if (!wide && (tall || b.height > r.height * 0.55)) { if (x + b.width / 2 < r.width / 2) ins.left = Math.max(ins.left, x + b.width); else ins.right = Math.max(ins.right, r.width - x); return; }
+    if (y + b.height / 2 < r.height / 2) ins.top = Math.max(ins.top, y + b.height); else ins.bottom = Math.max(ins.bottom, r.height - y);
+  };
+  if (window.matchMedia('(orientation: landscape) and (max-height: 500px)').matches) {
+    // side columns by layout contract
+    const side = (el, which) => {
+      if (!el || !el.children.length) return;
+      const b = el.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+      if (which === 'left') ins.left = Math.max(ins.left, b.right - r.left); else ins.right = Math.max(ins.right, r.right - b.left);
+    };
+    side(leftRail, 'left'); side(rightRail, 'right');
+  } else { carve(leftRail); carve(rightRail); }
+  return ins;
+}
+function watchRailSizes() {
+  // rails change size as tutorial cards come and go: refit the board
+  let raf = 0;
+  const refit = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(onResize); };
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(refit);
+    for (const el of [leftRail, rightRail, document.getElementById('game-region')]) if (el) ro.observe(el);
+  }
+  const mo = new MutationObserver(refit);
+  for (const el of [leftRail, rightRail]) if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 }
 
 function loop(nowMs) {
@@ -427,6 +469,14 @@ function showTutorialCard() {
   const card = el('aside', { class: 'tutorial-card', role: 'note' }, [
     el('strong', { text: `${app.tutorialStep + 1}/${content.TUTORIAL_STEPS.length} — ${step.title}` }),
     el('p', { text: step.text }),
+    // the card can be tucked away so it never blocks board cells; the title
+    // stays as a chip that brings the text back
+    el('button', { class: 'chip-btn tutorial-toggle', text: t('hideLesson'), 'aria-expanded': 'true', onclick: (e) => {
+      const collapsed = card.classList.toggle('collapsed');
+      e.currentTarget.textContent = collapsed ? t('showLesson') : t('hideLesson');
+      e.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+      onResize();
+    } }),
   ]);
   const old = document.querySelector('.tutorial-card');
   if (old) old.remove();
@@ -470,6 +520,9 @@ function renderAll(events) {
 function updateHud() {
   const s = app.session && app.session.state;
   hudEls.objective.textContent = s ? objectiveText() : '';
+  // the objective rail mirrors the same text so it never shows a stale count
+  const railObj = leftRail.querySelector('[data-role="rail-objective"]');
+  if (railObj) railObj.textContent = s ? objectiveText() : '';
   hudEls.score.textContent = s ? `${t('score')}: ${s.score}` : '';
   hudEls.combo.textContent = s && s.comboStreak > 1 ? `${t('comboStreak')} ×${s.comboStreak}` : '';
   updatePlayerChip();
@@ -563,9 +616,9 @@ function renderRails(mode) {
   leftRail.innerHTML = '';
   rightRail.innerHTML = '';
   if (!mode) return;
-  leftRail.appendChild(el('div', { class: 'rail-block' }, [
+  leftRail.appendChild(el('div', { class: 'rail-block rail-objective' }, [
     el('h3', { text: t('objective') }),
-    el('p', { text: objectiveText() }),
+    el('p', { text: objectiveText(), 'data-role': 'rail-objective' }),
   ]));
   if (app.progression.journeyStage > 1 || mode === 'journey') {
     leftRail.appendChild(el('div', { class: 'rail-block' }, [
@@ -578,6 +631,7 @@ function renderRails(mode) {
   rightRail.appendChild(el('div', { class: 'rail-block actions' }, [
     el('button', { class: 'chip-btn', text: t('hint'), onclick: () => showHint() }),
     undoOk ? el('button', { class: 'chip-btn', text: t('undo'), onclick: () => doUndo() }) : null,
+    el('button', { class: 'chip-btn', text: t('fitBoard'), title: 'C', onclick: () => onResize() }),
   ]));
 }
 
