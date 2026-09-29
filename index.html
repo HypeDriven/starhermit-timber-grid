@@ -105,6 +105,22 @@
   .help-card p { margin: 0.25rem 0 0; font-size: 0.92rem; }
   .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; }
   .setting-row input[type="range"] { width: 10rem; }
+  .setting-row label { flex: 1 1 auto; min-width: 0; }
+  .graphics-panel .setting-row { gap: 0.5rem; }
+  .graphics-panel .setting-row label { flex: 1 1 5.5rem; }
+  .graphics-panel .setting-row select { flex: 0 1 auto; min-width: 0; max-width: 70%; font-size: 0.9rem; padding-left: 0.35rem; padding-right: 0.2rem; }
+  .gfx-scale { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; flex: 0 0 auto; }
+  .gfx-scale input[type="range"] { width: 8rem; }
+  .gfx-scale-value { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+  .gfx-summary { margin: 0.3rem 0 0; font-size: 0.85rem; opacity: 0.85; overflow-wrap: anywhere; }
+  .gfx-note { margin: 0; font-size: 0.85rem; color: var(--accent); }
+  .setting-row input[type="checkbox"] { width: 22px; height: 22px; }
+  #fps-meter {
+    position: fixed; left: calc(0.4rem + var(--sal)); bottom: calc(0.3rem + var(--sab)); z-index: 5;
+    pointer-events: none; font: 12px/1.3 ui-monospace, monospace; background: rgba(0,0,0,0.55);
+    color: #f5efe6; padding: 0.15rem 0.4rem; border-radius: 0.3rem;
+  }
+  #fps-meter[hidden] { display: none; }
   .setting-row select { font: inherit; background: var(--panel2); color: var(--text); border-radius: 0.4rem; padding: 0.3rem 0.5rem; min-height: 40px; }
 
   .sr-only {
@@ -165,7 +181,8 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "./vendor/three.module.js"
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
   }
 }
 </script>

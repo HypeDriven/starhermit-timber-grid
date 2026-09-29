@@ -251,13 +251,78 @@ async function startJourney(page) {
 }
 
 // ---------- one full pass ----------
+// Graphics settings through the visible UI: title → Settings → Graphics,
+// switch presets, override one effect, change the render scale, and confirm
+// the renderer applied it (data-gfx-* on <body>, cost summary) and that it
+// survives a reload. Also renders Ultra (MSAA via the composer) and Low so
+// the console collectors see both ends of the range.
+async function graphicsPass(page, name, { tap }) {
+  const press = (sel) => (tap ? page.tap(sel) : page.click(sel));
+  const body = (attr) => page.evaluate((a) => document.body.getAttribute(a), attr);
+  const waitAttr = (attr, v) => page.waitForFunction(([a, x]) => document.body.getAttribute(a) === x, [attr, v], { timeout: 20000, polling: 100 });
+  const openGraphics = async () => {
+    await page.waitForSelector('#app .title-panel', { timeout: 15000 });
+    await press('#app .title-panel .menu-btn:has-text("Settings")');
+    await page.waitForSelector('#settings-graphics');
+    await press('#settings-graphics');
+    await page.waitForSelector('#gfx-preset');
+  };
+  await page.goto(BASE, { waitUntil: 'load' });
+  await openGraphics();
+  const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+  if (!/^Auto \(detected: (Low|Balanced|High)\)$/.test(autoLabel)) throw new Error(`bad auto label "${autoLabel}"`);
+  if (await body('data-gfx-auto') !== 'true') throw new Error('expected Auto preset by default');
+  // the whole panel must fit the viewport (it scrolls internally)
+  const vp = page.viewportSize();
+  const box = await page.locator('.graphics-panel').boundingBox();
+  if (box.x < 0 || box.y < 0 || box.x + box.width > vp.width + 1 || box.y + box.height > vp.height + 1)
+    throw new Error(`graphics panel overflows viewport: ${JSON.stringify(box)}`);
+
+  await page.selectOption('#gfx-preset', 'low');
+  await waitAttr('data-gfx-preset', 'low');
+  if (await body('data-gfx-shadows') !== 'off') throw new Error('Low should disable shadows');
+  await page.selectOption('#gfx-preset', 'high');
+  await waitAttr('data-gfx-preset', 'high');
+  await page.waitForFunction(() => /2048² shadows/.test(document.getElementById('gfx-summary').textContent), null, { timeout: 20000, polling: 100 });
+  const presetLabel = await page.locator('#gfx-bloom option[value="preset"]').textContent();
+  if (presetLabel !== 'From preset (On)') throw new Error(`bad preset label "${presetLabel}"`);
+  await page.selectOption('#gfx-bloom', 'off');
+  await waitAttr('data-gfx-bloom', 'off');
+  await page.locator('#gfx-scale').fill('150');
+  await page.waitForFunction(() => document.getElementById('gfx-scale-value').textContent === '150%', null, { timeout: 20000, polling: 100 });
+  await page.waitForTimeout(600); // render a few High frames
+  ok(`${name}: Graphics panel switched Low → High, bloom override off, render scale 150%`);
+
+  await page.reload({ waitUntil: 'load' });
+  await openGraphics();
+  if (await body('data-gfx-preset') !== 'high') throw new Error('preset lost on reload');
+  if (await body('data-gfx-bloom') !== 'off') throw new Error('bloom override lost on reload');
+  const kept = await page.evaluate(() => [document.getElementById('gfx-preset').value, document.getElementById('gfx-bloom').value, document.getElementById('gfx-scale').value]);
+  if (kept.join() !== 'high,off,150') throw new Error(`graphics settings not restored: ${kept}`);
+  ok(`${name}: graphics settings survive reload`);
+
+  // choosing a preset clears overrides; exercise Ultra, then Low
+  await page.selectOption('#gfx-preset', 'ultra');
+  await waitAttr('data-gfx-preset', 'ultra');
+  if (await page.locator('#gfx-bloom').inputValue() !== 'preset') throw new Error('preset did not clear overrides');
+  await page.waitForTimeout(800);
+  await page.selectOption('#gfx-preset', 'low');
+  await waitAttr('data-gfx-preset', 'low');
+  await page.waitForTimeout(300);
+  // Back is reachable (the panel scrolls) and returns to Settings
+  await page.locator('.graphics-panel .menu-btn:has-text("Back")').scrollIntoViewIfNeeded();
+  await press('.graphics-panel .menu-btn:has-text("Back")');
+  await page.waitForSelector('#settings-graphics');
+  ok(`${name}: Ultra and Low render; preset clears overrides; Back returns to Settings`);
+}
+
 async function runPass(browser, name, ctxOpts, { full }) {
   const errors = [];
   const context = await browser.newContext(ctxOpts);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() !== 'error' || browserNoise.test(m.text())) return;
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
     if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon/.test(url)) return;
     errors.push(`console: ${m.text()}`);
@@ -446,6 +511,8 @@ async function runPass(browser, name, ctxOpts, { full }) {
       await page.screenshot({ path: SHOT('mobile-play', name) });
       ok(`${name}: started practice and placed ${placed} pieces via touchscreen.tap (score ${stFinal.score})`);
     }
+
+    await graphicsPass(page, name, { tap: shouldTap });
   } finally {
     await context.close();
   }

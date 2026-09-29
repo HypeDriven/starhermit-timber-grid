@@ -6,7 +6,8 @@ import * as sessionMod from './session.js';
 import * as render from './render.js';
 import * as audio from './audio.js';
 import * as platform from './platform.js';
-import { t, setLang, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
+import { t, tg, setLang, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
+import * as gfx from './gfx.js';
 
 // App screens follow the state model: boot → title → mode-select → preparing
 // → tutorial/countdown → active ↔ paused → resolving → results → progression.
@@ -54,7 +55,7 @@ async function boot() {
   if (errors.length) console.error('content validation failed', errors);
 
   app.webgl = render.init(canvas, themeById(app.settings.theme), {
-    quality: app.settings.quality,
+    graphics: graphicsSettings(),
     reducedMotion: app.settings.reducedMotion,
     palette: app.settings.colorPalette,
   });
@@ -873,7 +874,7 @@ function showSettings(onBack) {
     el('h2', { id: 'set-h', text: t('settings') }),
     row(t('language'), select('lang', [['en', 'English'], ['zh', '中文']])),
     row(t('theme'), select('theme', content.THEMES.map(th => [th.id, th.name]))),
-    row(t('quality'), select('quality', [['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']])),
+    el('button', { id: 'settings-graphics', class: 'menu-btn', 'data-action': 'open-graphics', text: `${tg('graphics')} …`, onclick: () => showGraphics(() => showSettings(onBack)) }),
     row(t('colorPalette'), select('colorPalette', [['standard', 'Standard'], ['deuteranopia', 'Deuteranopia'], ['protanopia', 'Protanopia'], ['tritanopia', 'Tritanopia']])),
     row(t('reducedMotion'), toggle('reducedMotion')),
     row(t('highContrast'), toggle('highContrast')),
@@ -901,7 +902,7 @@ function applySettings() {
   setLang(s.lang);
   render.setReducedMotion(s.reducedMotion);
   render.setPalette(s.colorPalette);
-  render.setQuality(s.quality);
+  render.setGraphics(graphicsSettings());
   render.setTheme(activeTheme());
   document.body.classList.toggle('high-contrast', s.highContrast);
   document.body.classList.toggle('large-text', s.largeText);
@@ -917,6 +918,98 @@ function applySettingsToAudio() {
   audio.setVolume('ambience', s.volAmbience);
   audio.setVolume('voice', s.volVoice);
   audio.setMuted(s.muted);
+}
+
+// Saved graphics settings (the legacy single `quality` value seeds the preset).
+function graphicsSettings() {
+  const s = app.settings;
+  return s.graphics && typeof s.graphics === 'object' ? s.graphics : gfx.fromLegacyQuality(s.quality);
+}
+
+// Graphics panel: preset, render scale, per-effect overrides, adaptive
+// resolution, frame-rate readout and a live cost summary. Every change
+// applies immediately and is saved with the other settings.
+function showGraphics(onBack) {
+  const s = app.settings;
+  let g = { ...graphicsSettings() };
+  const save = () => { s.graphics = g; persistSettings(); refresh(); };
+  const tierName = (tier) => tg('tier_' + tier);
+  const rowOf = (label, control, id) => el('div', { class: 'setting-row' }, [el('label', { for: id, text: label }), control]);
+
+  const preset = el('select', { id: 'gfx-preset', 'data-gfx': 'preset' });
+  preset.addEventListener('change', () => { g = gfx.withPreset(g, preset.value); save(); });
+
+  const scaleOut = el('output', { id: 'gfx-scale-value', for: 'gfx-scale', class: 'gfx-scale-value' });
+  const scale = el('input', { id: 'gfx-scale', 'data-gfx': 'render_scale', type: 'range', min: '50', max: '200', step: '5' });
+  scale.addEventListener('input', () => { scaleOut.textContent = `${scale.value}%`; });
+  scale.addEventListener('change', () => { g = { ...g, render_scale: Number(scale.value) / 100 }; save(); });
+
+  const catSelects = {};
+  const catRows = Object.entries(gfx.CATEGORIES).map(([cat, tiers]) => {
+    const sel = el('select', { id: `gfx-${cat}`, 'data-gfx-cat': cat });
+    sel.appendChild(el('option', { value: 'preset' }));
+    for (const tier of tiers) sel.appendChild(el('option', { value: tier, text: tierName(tier) }));
+    sel.addEventListener('change', () => {
+      g = { ...g };
+      if (sel.value === 'preset') delete g[cat]; else g[cat] = sel.value;
+      save();
+    });
+    catSelects[cat] = sel;
+    return rowOf(tg('cat_' + cat), sel, sel.id);
+  });
+
+  const check = (id, key) => {
+    const inp = el('input', { id, type: 'checkbox', 'data-gfx': key });
+    inp.addEventListener('change', () => { g = { ...g, [key]: inp.checked }; save(); });
+    return inp;
+  };
+  const adaptive = check('gfx-adaptive', 'adaptive');
+  const showFps = check('gfx-fps', 'show_fps');
+  const summary = el('p', { id: 'gfx-summary', class: 'gfx-summary', role: 'status' });
+  const note = el('p', { id: 'gfx-post-note', class: 'gfx-note', hidden: '' , text: tg('gfxPostFailed') });
+
+  function refresh() {
+    const info = render.graphicsInfo(k => tg(k));
+    const r = info.resolved;
+    preset.innerHTML = '';
+    preset.appendChild(el('option', { value: 'auto', text: tg('gfxAuto', { tier: tierName(info.detected) }) }));
+    for (const p of gfx.PRESETS) preset.appendChild(el('option', { value: p, text: tierName(p) }));
+    preset.value = gfx.PRESETS.includes(g.preset) ? g.preset : 'auto';
+    const pct = Math.round((Number(g.render_scale) || 1) * 100);
+    scale.value = String(Math.min(200, Math.max(50, pct)));
+    scaleOut.textContent = `${scale.value}%`;
+    for (const [cat, sel] of Object.entries(catSelects)) {
+      sel.options[0].textContent = tg('gfxFromPreset', { tier: tierName(gfx.presetTier(r.preset, cat)) });
+      sel.value = gfx.CATEGORIES[cat].includes(g[cat]) ? g[cat] : 'preset';
+    }
+    adaptive.checked = g.adaptive !== false;
+    showFps.checked = !!g.show_fps;
+    const fpsText = info.fps ? ` · ${info.fps} fps` : '';
+    summary.textContent = `${info.gpu} · ${info.summary}${fpsText}`;
+    note.hidden = !info.postFailed;
+  }
+
+  const panel = el('section', { class: 'panel settings-panel graphics-panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gfx-h' }, [
+    el('h2', { id: 'gfx-h', text: tg('graphics') }),
+    rowOf(tg('gfxQuality'), preset, 'gfx-preset'),
+    rowOf(tg('gfxScale'), el('span', { class: 'gfx-scale' }, [scale, scaleOut]), 'gfx-scale'),
+    ...catRows,
+    rowOf(tg('gfxAdaptive'), adaptive, 'gfx-adaptive'),
+    rowOf(tg('gfxShowFps'), showFps, 'gfx-fps'),
+    summary,
+    note,
+    menuButton(t('back'), onBack, { primary: true }),
+  ]);
+  openOverlay(panel);
+  refresh();
+  // The summary reports the live buffer size / frame rate: keep it current
+  // while the panel is open.
+  const timer = setInterval(() => {
+    if (!document.body.contains(panel)) { clearInterval(timer); return; }
+    const info = render.graphicsInfo(k => tg(k));
+    summary.textContent = `${info.gpu} · ${info.summary}${info.fps ? ` · ${info.fps} fps` : ''}`;
+    note.hidden = !info.postFailed;
+  }, 700);
 }
 
 function showHelp(onBack) {
