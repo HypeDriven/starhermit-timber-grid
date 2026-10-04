@@ -6,7 +6,7 @@ import * as sessionMod from './session.js';
 import * as render from './render.js';
 import * as audio from './audio.js';
 import * as platform from './platform.js';
-import { t, tg, setLang, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
+import { t, tg, ts, setLang, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
 import * as gfx from './gfx.js';
 
 // App screens follow the state model: boot → title → mode-select → preparing
@@ -45,11 +45,21 @@ async function boot() {
   buildShell();
   applySettingsToAudio();
   setLang(app.settings.lang);
-  await platform.init(); // reads/strips the launch token, pulls cloud progress
+  await platform.init(); // reads/strips the launch token, pulls cloud progress, platform settings + controls
   app.progression = platform.loadProgression(); // remote doc wins when present
+  if (platform.isHosted()) {
+    Object.assign(app.settings, platform.loadSettings()); // platform preferences win
+    setLang(app.settings.lang);
+    applySettingsToAudio();
+  }
+  platform.onAuthChange((a) => {
+    if (a.signedIn) return;
+    toast(ts('signedOut'));
+    updatePlayerChip();
+    if (app.screen === 'title') showTitle(); // sign-in button returns
+  });
   platform.onSyncChange(() => updatePlayerChip());
   updatePlayerChip();
-  await platform.syncTime(); // daily boundaries sync with host time when reachable
 
   const errors = content.validateContent();
   if (errors.length) console.error('content validation failed', errors);
@@ -181,6 +191,48 @@ function menuButton(label, onClick, opts = {}) {
   return el('button', { class: 'menu-btn' + (opts.primary ? ' primary' : ''), text: label, onclick: onClick });
 }
 
+function idButton(id, label, onClick) {
+  const b = menuButton(label, onClick);
+  b.id = id;
+  return b;
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  let box = document.getElementById('sh-toast');
+  if (!box) {
+    box = el('div', { id: 'sh-toast', role: 'status' });
+    document.body.appendChild(box);
+  }
+  box.textContent = msg;
+  box.hidden = false;
+  announce(msg);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { box.hidden = true; }, 2800);
+}
+
+async function copyInvite() {
+  const url = platform.inviteLink();
+  if (!url) return;
+  try { await navigator.clipboard.writeText(url); toast(ts('copied')); }
+  catch (_) { toast(ts('copyFail', { url })); }
+}
+
+/** Short on-screen label for a KeyboardEvent.code. */
+function keyLabel(code) {
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  return { Escape: 'Esc', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' }[code] || code;
+}
+function keysText() {
+  const b = platform.getBindings();
+  const k = (...actions) => actions.map(a => (b[a] || []).map(keyLabel).join('/')).join(' ');
+  return t('helpKeys', {
+    nav: k('up', 'down', 'left', 'right'), pieces: k('piece1', 'piece2', 'piece3'), place: k('place'),
+    undo: k('undo'), hint: k('hint'), pause: k('pause'), camera: k('camera'),
+  });
+}
+
 // ---------------------------------------------------------------- title
 function showTitle() {
   app.screen = 'title';
@@ -202,6 +254,8 @@ function showTitle() {
     menuButton(`${t('journey')} — ${t('stage')} ${prog.journeyStage}`, () => setupJourney(prog.journeyStage)),
     menuButton(t('settings'), () => showSettings()),
     menuButton(t('help'), () => showHelp()),
+    platform.canSignIn() ? idButton('btn-signin', ts('signIn'), () => platform.signIn()) : null,
+    platform.inviteLink() ? idButton('btn-invite', ts('invite'), () => copyInvite()) : null,
   ]);
   openOverlay(panel, { modal: false });
   document.getElementById('btn-pause').style.display = 'none';
@@ -1020,7 +1074,7 @@ function showHelp(onBack) {
     card(t('play'), t('helpPlace')),
     card(t('cleared'), t('helpClear')),
     card(t('comboStreak'), t('helpCombo')),
-    card('⌨', t('helpKeys')),
+    card('⌨', keysText()),
     menuButton(t('back'), back, { primary: true }),
   ]);
   openOverlay(panel);
@@ -1065,32 +1119,34 @@ function wireInput() {
 
 function onKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts alone
+  const b = platform.getBindings();
+  const is = (action) => (b[action] || []).includes(e.code);
   if (app.screen === 'active') {
-    const k = e.key;
-    if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+    const dir = ['up', 'down', 'left', 'right'].find(is);
+    if (dir) {
       e.preventDefault();
       const [r, c] = app.cursor;
       // Directional navigation: snap to the nearest legal anchor in that direction.
-      if (k === 'ArrowUp') app.cursor = [Math.max(0, r - 1), c];
-      if (k === 'ArrowDown') app.cursor = [Math.min(rules.N - 1, r + 1), c];
-      if (k === 'ArrowLeft') app.cursor = [r, Math.max(0, c - 1)];
-      if (k === 'ArrowRight') app.cursor = [r, Math.min(rules.N - 1, c + 1)];
+      if (dir === 'up') app.cursor = [Math.max(0, r - 1), c];
+      if (dir === 'down') app.cursor = [Math.min(rules.N - 1, r + 1), c];
+      if (dir === 'left') app.cursor = [r, Math.max(0, c - 1)];
+      if (dir === 'right') app.cursor = [r, Math.min(rules.N - 1, c + 1)];
       updateGhost();
-    } else if (k === '1' || k === '2' || k === '3') {
-      selectPiece(parseInt(k, 10) - 1);
-    } else if (k === 'Enter' || k === ' ') {
+    } else if (is('piece1') || is('piece2') || is('piece3')) {
+      selectPiece(is('piece1') ? 0 : is('piece2') ? 1 : 2);
+    } else if (is('place')) {
       e.preventDefault();
       tryPlace();
-    } else if (k === 'u' || k === 'U') {
+    } else if (is('undo')) {
       doUndo();
-    } else if (k === 'h' || k === 'H') {
+    } else if (is('hint')) {
       showHint();
-    } else if (k === 'p' || k === 'P' || k === 'Escape') {
+    } else if (is('pause')) {
       pauseGame('user');
-    } else if (k === 'c' || k === 'C') {
+    } else if (is('camera')) {
       onResize(); // camera reset
     }
-  } else if (app.screen === 'paused' && (e.key === 'Escape' || e.key === 'p' || e.key === 'P')) {
+  } else if (app.screen === 'paused' && is('pause')) {
     // Only resume when the pause card itself is showing; settings/help opened
     // from it are nested overlays and must not be dismissed into play.
     if (document.getElementById('pause-h')) resumeGame();

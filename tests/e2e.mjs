@@ -37,15 +37,9 @@
  * state and asserts the results overlay appears (which exercises the ranked
  * submitScore path at src/main.js:620). See the fix note below.
  *
- * Serving: the repo ships `server.js` (the StarHermit authoritative script
- * declared by starhermit.txt), but the game is fully playable offline — when
- * `/api/v1/time` is unreachable it sets `hosted=false` and Practice/Journey/
- * Daily run entirely locally (daily seed is computed client-side). So, per the
- * sibling title conventions, this test embeds a minimal node:http static
- * server on an ephemeral port and answers /api/* probes with 200 `{}` so the
- * platform adapter degrades to its documented offline path with zero console
- * noise. If the UI ever requires the real backend this can be swapped for
- * spawning `server.js`; today it is not needed.
+ * Serving: a minimal node:http static server on an ephemeral port (unknown
+ * paths 404). Standalone (no launch token) the game must make zero
+ * same-origin /api or /ws requests; each pass records any as an error.
  *
  * Run: npm run test:e2e  (or: node tests/e2e.mjs)
  */
@@ -86,13 +80,6 @@ const server = http.createServer(async (req, res) => {
   try {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p === '/') p = '/index.html';
-    // No StarHermit backend here: answer API probes with empty JSON (200) so
-    // the platform adapter degrades to offline mode without console noise.
-    if (p.startsWith('/api/')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{}');
-      return;
-    }
     const file = path.normalize(path.join(ROOT, p));
     if (!file.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
     const data = await readFile(file);
@@ -320,16 +307,20 @@ async function runPass(browser, name, ctxOpts, { full }) {
   const errors = [];
   const context = await browser.newContext(ctxOpts);
   const page = await context.newPage();
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.origin === BASE && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`standalone own-server request: ${u.pathname}`);
+  });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon/.test(url)) return;
+    if (/Failed to load resource/.test(m.text()) && /\/favicon/.test(url)) return;
     errors.push(`console: ${m.text()}`);
   });
   page.on('response', (r) => {
     const p = r.url();
-    if (r.status() >= 400 && !/\/api\/|\/favicon/.test(p)) errors.push(`http ${r.status()}: ${p}`);
+    if (r.status() >= 400 && !/\/favicon/.test(p)) errors.push(`http ${r.status()}: ${p}`);
   });
 
   const shouldTap = !!ctxOpts.hasTouch;

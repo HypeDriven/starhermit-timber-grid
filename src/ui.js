@@ -1,3 +1,4 @@
+import { shText } from './sh-i18n.js';
 // Timber Grid — DOM shell helpers: i18n, live announcements, focus handling.
 // All menus, forms, and assistive descriptions live in semantic HTML.
 export const I18N = {
@@ -26,7 +27,7 @@ export const I18N = {
     helpPlace: 'Drag a piece from the tray onto the board, or select it with the keyboard and move the target with arrow keys. Enter/Space places it.',
     helpClear: 'A completely filled row, column, or 3×3 region clears and scores points.',
     helpCombo: 'Clearing on consecutive placements builds a combo bonus.',
-    helpKeys: 'Keys: arrows move target, 1–3 select piece, Enter place, U undo, H hint, P/Esc pause, C camera reset.',
+    helpKeys: 'Keys: {nav} move target, {pieces} select piece, {place} place, {undo} undo, {hint} hint, {pause} pause, {camera} camera reset.',
     achievements: 'Achievements', leaderboard: 'Leaderboard',
     dailyDone: 'Daily completed', invalidBlocked: 'That cell is blocked or out of bounds.',
     tutorialDone: 'Tutorial complete!', comboStreak: 'Combo',
@@ -66,7 +67,8 @@ export const I18N = {
     helpPlace: '将托盘中的方块拖到棋盘上，或用键盘选择方块后用方向键移动目标，回车/空格放置。',
     helpClear: '填满整行、整列或 3×3 区域即可消除得分。',
     helpCombo: '连续放置都消除可累积连击奖励。',
-    helpKeys: '按键：方向键移动目标，1–3 选择方块，回车放置，U 撤销，H 提示，P/Esc 暂停，C 重置视角。',
+    helpKeys: '按键：{nav} 移动目标，{pieces} 选择方块，{place} 放置，{undo} 撤销，{hint} 提示，{pause} 暂停，{camera} 重置视角。',
+    signIn: '使用 StarHermit 登录', invite: '邀请好友', copied: '邀请链接已复制到剪贴板', copyFail: '请复制此邀请链接：{url}', signedOut: '已退出登录——进度保留在此设备上',
     achievements: '成就', leaderboard: '排行榜',
     dailyDone: '今日已完成', invalidBlocked: '该格子被占用或越界。',
     tutorialDone: '教学完成！', comboStreak: '连击',
@@ -212,6 +214,10 @@ export function tg(key, vars) {
 let lang = 'en';
 export function setLang(l) { lang = I18N[l] ? l : 'en'; }
 export function getLang() { return lang; }
+/** StarHermit platform strings: the game language when it is zh, else the browser locale (9 locales). */
+export function ts(key, vars) {
+  return lang === 'zh' ? t(key, vars) : shText(key, vars);
+}
 export function t(key, vars) {
   let s = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
   if (vars) for (const k of Object.keys(vars)) s = s.replace(`{${k}}`, String(vars[k]));

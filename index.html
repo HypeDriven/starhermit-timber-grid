@@ -177,6 +177,10 @@
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
   }
+  #sh-toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80;
+    max-width: min(92vw, 34rem); padding: 0.6rem 1.1rem; border-radius: 0.8rem; text-align: center; overflow-wrap: anywhere;
+    background: var(--panel); border: 1px solid var(--accent); color: var(--text); }
+  #sh-toast[hidden] { display: none; }
 </style>
 <script type="importmap">
 {
@@ -191,6 +195,7 @@
 <body>
 <div id="app" aria-busy="true"></div>
 <noscript>Timber Grid requires JavaScript.</noscript>
+<script src="starhermit-sdk.js"></script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
