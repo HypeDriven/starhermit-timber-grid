@@ -267,7 +267,10 @@ export function trapFocus(container) {
   }
   container.addEventListener('keydown', onKey);
   const f = focusables();
-  if (f.length) f[0].focus();
+  // preventScroll: a panel taller than the viewport scrolls internally; keep
+  // its heading (e.g. the results title and score) in view rather than
+  // scrolling down to the first button.
+  if (f.length) f[0].focus({ preventScroll: true });
   return () => {
     container.removeEventListener('keydown', onKey);
     if (prev && prev.focus) prev.focus();

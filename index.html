@@ -38,7 +38,7 @@
   #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
   .rail {
-    position: relative; z-index: 2; width: 13rem; max-width: 34vw; padding: 0.6rem;
+    position: relative; z-index: 2; width: 13rem; max-width: calc(34vw / var(--ui-scale, 1)); padding: 0.6rem;
     display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none;
   }
   #rail-left { margin-right: auto; }
@@ -83,7 +83,7 @@
   }
   .panel {
     background: var(--panel); border-radius: 0.9rem; padding: 1.4rem 1.6rem;
-    width: min(30rem, 94vw); max-height: 92dvh; overflow: auto;
+    width: min(30rem, calc(94vw / var(--ui-scale, 1))); max-height: calc(92dvh / var(--ui-scale, 1)); overflow: auto;
     display: flex; flex-direction: column; gap: 0.55rem; box-shadow: 0 1rem 3rem rgba(0,0,0,0.5);
   }
   .panel h2 { margin: 0 0 0.3rem; }
@@ -159,10 +159,10 @@
     #hud-objective { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #hud-player { display: none; }
     /* rails become side columns so the board keeps the middle */
-    #rail-left { right: auto; max-width: 38vw; flex-direction: column; }
+    #rail-left { right: auto; max-width: calc(38vw / var(--ui-scale, 1)); flex-direction: column; }
     #rail-right { left: auto; top: 0.4rem; bottom: auto; flex-direction: column; align-items: flex-end; }
     .rail-block.actions { flex-direction: column; }
-    .tutorial-card { flex: 0 0 auto; max-width: 38vw; font-size: 0.85rem; padding: 0.4rem 0.6rem; }
+    .tutorial-card { flex: 0 0 auto; max-width: calc(38vw / var(--ui-scale, 1)); font-size: 0.85rem; padding: 0.4rem 0.6rem; }
     .tutorial-card p { font-size: 0.82rem; }
   }
   @media (orientation: portrait) {
@@ -178,9 +178,12 @@
     * { animation: none !important; transition: none !important; }
   }
   #sh-toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80;
-    max-width: min(92vw, 34rem); padding: 0.6rem 1.1rem; border-radius: 0.8rem; text-align: center; overflow-wrap: anywhere;
+    max-width: min(calc(92vw / var(--ui-scale, 1)), 34rem); padding: 0.6rem 1.1rem; border-radius: 0.8rem; text-align: center; overflow-wrap: anywhere;
     background: var(--panel); border: 1px solid var(--accent); color: var(--text); }
   #sh-toast[hidden] { display: none; }
+  /* Large screens: zoom every DOM UI layer by --ui-scale (ui-scale.js; exactly 1
+     up to 1600x1000). The WebGL canvas stays unzoomed and fills the region. */
+  #statusbar, .rail, #tray, .overlay-veil, #sh-toast, #fps-meter, #board-mirror.board-visible { zoom: var(--ui-scale, 1); }
 </style>
 <script type="importmap">
 {
@@ -191,6 +194,7 @@
 }
 </script>
 <script src="browser-guard.js"></script>
+<script src="ui-scale.js"></script>
 </head>
 <body>
 <div id="app" aria-busy="true"></div>
