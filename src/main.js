@@ -840,12 +840,24 @@ function finishRound() {
   }
   platform.funnelEvent('round_end', { mode: sess.mode, score: s.score, reason: s.terminalReason });
 
+  // Signed in, a ranked round also posts its score to the StarHermit high-score
+  // board; the line below fills in with the player's rank there.
+  const lbLine = sess.ranked && platform.isHosted()
+    ? el('p', { class: 'reason', id: 'results-lb', role: 'status', text: ts('lbPosting') }) : null;
+  if (lbLine) {
+    platform.postLeaderboard(s.score).then((r) => {
+      lbLine.textContent = !r.posted ? ts('lbNotPosted')
+        : r.rank ? ts('lbRank', { rank: r.rank }) : ts('lbPosted');
+    });
+  }
+
   const b = s.breakdown;
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'res-h' }, [
     el('h2', { id: 'res-h', text: won ? t('stageClear') : t('gameOver') }),
     el('p', { class: 'reason', text: `${t('reason')}: ${reasonText(s.terminalReason)}` }),
     el('p', { class: 'reason', text: `${t('journey')}: ${t('stage')} ${app.progression.journeyStage} / ${content.STAGES.length}` }),
     el('p', { class: 'big-score', text: `${t('score')}: ${s.score}` }),
+    lbLine,
     el('h3', { text: t('breakdown') }),
     el('table', { class: 'score-table' }, [
       el('tr', {}, [el('td', { text: t('placed') }), el('td', { text: String(b.place) })]),

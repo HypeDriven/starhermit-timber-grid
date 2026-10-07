@@ -248,10 +248,25 @@ export function trackPlayDay(dayKey) {
   }
 }
 
-// --- leaderboards: local personal records + hosted read-only board ----------------
-// Clients can never submit to a game leaderboard; ranked rounds keep their
-// replay-enveloped records locally (and in the cloud doc). When the platform
-// exposes a leaderboardId, its entries are read only.
+// --- leaderboards: local personal records + the StarHermit high-score board ---------
+// Ranked rounds keep their replay-enveloped records locally (and in the cloud
+// doc); signed in, postLeaderboard() also posts the score to the high-score
+// board (score-script.js). getHostedBoard() reads the platform board.
+
+/** Signed in only: post a ranked round's score; resolves { posted, rank }. */
+export async function postLeaderboard(score) {
+  if (!isHosted()) return { posted: false, rank: null };
+  try {
+    const keys = await SH.submitScores({ 'high-score': score });
+    if (!(keys || []).includes('high-score')) return { posted: false, rank: null };
+    try {
+      const r = await SH.leaderboard('high-score', { pageSize: 100 });
+      const me = (r.items || []).find((e) => String(e.userId) === String(SH.userId));
+      return { posted: true, rank: me ? me.rank : null };
+    } catch { return { posted: true, rank: null }; }
+  } catch { return { posted: false, rank: null }; }
+}
+
 export function submitScore(entry) {
   // entry: { mode, score, seed, contentVersion, rulesVersion, assists, durationMs, dayKey?, stage? }
   const boards = lsGet('leaderboards', []);

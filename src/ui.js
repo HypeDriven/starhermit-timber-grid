@@ -69,6 +69,7 @@ export const I18N = {
     helpCombo: '连续放置都消除可累积连击奖励。',
     helpKeys: '按键：{nav} 移动目标，{pieces} 选择方块，{place} 放置，{undo} 撤销，{hint} 提示，{pause} 暂停，{camera} 重置视角。',
     signIn: '使用 StarHermit 登录', invite: '邀请好友', copied: '邀请链接已复制到剪贴板', copyFail: '请复制此邀请链接：{url}', signedOut: '已退出登录——进度保留在此设备上',
+    lbPosting: '正在提交分数到排行榜…', lbRank: '排行榜名次：#{rank}', lbPosted: '分数已提交到排行榜。', lbNotPosted: '分数未提交到排行榜。',
     achievements: '成就', leaderboard: '排行榜',
     dailyDone: '今日已完成', invalidBlocked: '该格子被占用或越界。',
     tutorialDone: '教学完成！', comboStreak: '连击',
