@@ -55,6 +55,10 @@ export function syncedDate() { return new Date(); }
 // --- cloud save: localStorage is the offline cache, the cloud slot is a mirror ---
 let syncState = 'synced'; // synced | saving | error (offline when !isHosted())
 let lastCloudDoc = null; // serialized doc known to match the server slot
+// Pushes wait for the start-up pull: one that lands after the 10 s boot bound must
+// not find a stale local doc already queued, which would overwrite the newer remote.
+let cloudPulled = false;
+let deferredDoc = null;
 const syncListeners = new Set();
 
 export function getSyncState() { return isHosted() ? syncState : 'offline'; }
@@ -67,6 +71,7 @@ function setSyncState(s) {
 
 function queueCloudSave(doc) {
   if (!isHosted()) return;
+  if (!cloudPulled) { deferredDoc = doc; return; }
   const s = JSON.stringify(doc);
   if (s === lastCloudDoc) return; // nothing new since the last push/pull
   lastCloudDoc = s;
@@ -140,7 +145,7 @@ export async function init() {
     for (const cb of syncListeners) cb(getSyncState());
     for (const cb of authListeners) cb(a);
   });
-  if (!isHosted()) return;
+  if (!isHosted()) { cloudPulled = true; return; }
   window.addEventListener('pagehide', () => { void flushCloudSave({ keepalive: true }); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) void flushCloudSave({ keepalive: true });
@@ -150,7 +155,12 @@ export async function init() {
   await Promise.race([
     Promise.all([
       nicknameFor(SH.userId).then(n => { profileName = n; }),
-      pullCloudSave(),
+      // The remote doc wins; a save deferred meanwhile is pushed only if none was adopted.
+      pullCloudSave().catch(() => false).then((adopted) => {
+        cloudPulled = true;
+        if (!adopted && deferredDoc) queueCloudSave(deferredDoc);
+        deferredDoc = null;
+      }),
       loadPlatformSettings(),
       SH.loadBindings(DEFAULT_BINDINGS).then(b => { bindings = b; }),
     ]),

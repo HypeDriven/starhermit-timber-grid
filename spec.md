@@ -198,7 +198,7 @@ No module may mutate rules state except through a validated command. Rendering c
 - Guests play locally. Signed in, the HUD player chip shows the profile nickname (`StarHermit.profile()`, fallback "Player <id>") and the cloud-sync state. No presence.
 - Every player preference (language, theme, quality/graphics, accessibility toggles, palette, handedness, drag mode, haptics, volumes, mute, tutorial completion) is mirrored to the platform settings KV with a debounced `patchSettings` of changed keys; at start the platform values win over local ones.
 - Keyboard actions are declared as `control.*` lines (`KeyboardEvent.code`); at start `StarHermit.loadBindings()` applies the player's platform overrides, keydown is routed by `event.code`, and the Help screen's keys card shows the effective bindings. There is no in-game rebinding UI; touch stays responsive UI.
-- Cloud save: the versioned, checksummed progression document lives in the `game:<slug>` slot via `saveJSON`/`loadJSON`, loaded remote-first at start (remote wins), saved with a ~2 s debounce and flushed with keepalive on `pagehide`/hidden. localStorage stays the offline cache.
+- Cloud save: the versioned, checksummed progression document lives in the `game:<slug>` slot via `saveJSON`/`loadJSON`, loaded remote-first at start (remote wins; pushes wait until that load settles, even past the 10 s boot bound), saved with a ~2 s debounce and flushed with keepalive on `pagehide`/hidden. localStorage stays the offline cache.
 - Signed in, the title shows an "Invite a friend" button that copies `StarHermit.inviteLink()` to the clipboard with a confirmation toast.
 
 ### Discovery, activity, and social layer
