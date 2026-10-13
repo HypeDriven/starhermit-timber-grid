@@ -24,7 +24,7 @@ function ensureCtx() {
     const g = ctx.createGain();
     g.gain.value = volumes[name];
     g.connect(master);
-    buses[name] = g;
+    buses[name] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, name) : g);
   }
   return ctx;
 }
@@ -54,7 +54,7 @@ function playSample(name) {
   if (!entry) { fetchSample(name); return false; } // synth covers it while loading
   if (!entry.buffer) return false; // still loading or failed -> synth fallback
   try {
-    const src = ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), name) : ctx.createBufferSource());
     src.buffer = entry.buffer;
     src.connect(buses.effects);
     src.start();
@@ -81,7 +81,7 @@ function blip(freq, dur, gainVal, type = 'sine', bus = 'effects') {
   const c = ensureCtx();
   if (!c || !buses) return;
   try {
-    const o = c.createOscillator();
+    const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(c.createOscillator(), bus) : c.createOscillator());
     const g = c.createGain();
     o.type = type;
     o.frequency.value = freq;
@@ -137,7 +137,7 @@ export function startAmbience() {
   const c = ensureCtx();
   if (!c || !buses || ambienceNode) return;
   try {
-    const o = c.createOscillator();
+    const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(c.createOscillator(), null) : c.createOscillator());
     o.type = 'sine';
     o.frequency.value = 55;
     const g = c.createGain();

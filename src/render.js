@@ -885,12 +885,12 @@ export function frame(nowMs) {
     if (key !== postKey) { postKey = key; buildPost(lastSize.w, lastSize.h); }
   }
   if (composer) {
-    try { composer.render(dt); return; } catch (_) {
+    try { (globalThis.GameOptions ? globalThis.GameOptions.draw(composer.renderer, () => composer.render(dt)) : composer.render(dt)); return; } catch (_) {
       postFailed = true;
       composer.dispose(); composer = null;
     }
   }
-  renderer.render(scene, camera);
+  (globalThis.GameOptions ? globalThis.GameOptions.draw(renderer, () => renderer.render(scene, camera)) : renderer.render(scene, camera));
 }
 
 export function setHidden(v) { hidden = !!v; }
