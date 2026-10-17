@@ -86,11 +86,58 @@ export function flushCloudSave({ keepalive = false } = {}) {
 async function pullCloudSave() {
   const doc = await SH.loadJSON();
   if (!doc || doc.version !== SAVE_VERSION || doc.checksum !== checksum(doc.data)) return false;
-  // On conflict prefer the remote doc; localStorage stays the offline cache.
-  lsSet('progression', doc);
+  // Merge with the local cache (best of both); localStorage stays the offline cache.
+  const merged = mergeProgression(doc.data, loadProgression());
+  const out = { version: SAVE_VERSION, data: merged, checksum: checksum(merged), savedAt: Date.now() };
+  lsSet('progression', out);
   lastCloudDoc = JSON.stringify(doc);
   setSyncState('synced');
   return true;
+}
+
+/**
+ * Progress from two devices: the furthest journey stage, the better best per
+ * journey stage / mode key, achievements united (earliest unlock), and the
+ * larger totals (the sides may share history, so they are not summed).
+ */
+export function mergeProgression(a, b) {
+  const base = { journeyStage: 1, journeyBest: {}, bests: {}, achievements: {}, totalScore: 0, gamesPlayed: 0 };
+  a = { ...base, ...(a || {}) }; b = { ...base, ...(b || {}) };
+  const bestOf = (x, y) => {
+    const out = { ...x };
+    for (const [k, v] of Object.entries(y || {})) {
+      const p = out[k];
+      const pv = p && typeof p === 'object' ? p.score : p;
+      const vv = v && typeof v === 'object' ? v.score : v;
+      if (p == null || (Number(vv) || 0) > (Number(pv) || 0)) out[k] = v;
+    }
+    return out;
+  };
+  const achievements = { ...a.achievements };
+  for (const [k, at] of Object.entries(b.achievements || {})) achievements[k] = achievements[k] ? Math.min(achievements[k], at) : at;
+  return {
+    ...a, ...b,
+    journeyStage: Math.max(a.journeyStage || 1, b.journeyStage || 1),
+    journeyBest: bestOf(a.journeyBest, b.journeyBest),
+    bests: bestOf(a.bests, b.bests),
+    achievements,
+    totalScore: Math.max(a.totalScore || 0, b.totalScore || 0),
+    gamesPlayed: Math.max(a.gamesPlayed || 0, b.gamesPlayed || 0),
+  };
+}
+
+const mergedListeners = new Set();
+/** cb() after a save conflict merged another device's progress into the local cache. */
+export function onProgressMerged(cb) { mergedListeners.add(cb); }
+
+/** Another device saved since our last load: reload, merge, adopt, save again. */
+async function resolveSaveConflict() {
+  const doc = await SH.loadJSON().catch(() => null);
+  const remote = doc && doc.version === SAVE_VERSION && doc.checksum === checksum(doc.data) ? doc.data : null;
+  const merged = mergeProgression(remote, loadProgression());
+  lastCloudDoc = null; // the slot moved on: the merged doc must be pushed
+  saveProgression(merged);
+  for (const cb of mergedListeners) { try { cb(merged); } catch (_) { /* listener guard */ } }
 }
 
 // --- settings KV + controls -------------------------------------------------------
@@ -140,6 +187,7 @@ export async function init() {
   if (!SH) return;
   SH.init();
   SH.on('saved', (ok) => setSyncState(ok ? 'synced' : 'error'));
+  SH.on('saveconflict', () => { void resolveSaveConflict(); });
   SH.on('auth', (a) => {
     if (!a.signedIn) profileName = null;
     for (const cb of syncListeners) cb(getSyncState());
@@ -155,10 +203,15 @@ export async function init() {
   await Promise.race([
     Promise.all([
       nicknameFor(SH.userId).then(n => { profileName = n; }),
-      // The remote doc wins; a save deferred meanwhile is pushed only if none was adopted.
+      // The cloud doc is merged into the local cache; the merged doc is pushed
+      // when it differs from the cloud copy (a deferred save is subsumed by it).
       pullCloudSave().catch(() => false).then((adopted) => {
         cloudPulled = true;
         if (!adopted && deferredDoc) queueCloudSave(deferredDoc);
+        else if (adopted) {
+          const cur = lsGet('progression', null);
+          if (cur && JSON.stringify(cur.data) !== JSON.stringify(JSON.parse(lastCloudDoc).data)) queueCloudSave(cur);
+        }
         deferredDoc = null;
       }),
       loadPlatformSettings(),
@@ -169,8 +222,8 @@ export async function init() {
 }
 
 // --- settings (per-game, persisted) -------------------------------------------
+// The game language is not a setting here: sh-language.js stores it (ui.language).
 const DEFAULT_SETTINGS = {
-  lang: 'en',
   theme: 'workshop',
   quality: 'auto', // auto | high | medium | low
   reducedMotion: false,
@@ -213,8 +266,13 @@ export function loadProgression() {
   return { journeyStage: 1, journeyBest: {}, bests: {}, achievements: {}, totalScore: 0, gamesPlayed: 0 };
 }
 
+/** The versioned, checksummed cloud/local document for a progression object. */
+export function sealProgression(data) {
+  return { version: SAVE_VERSION, data, checksum: checksum(data), savedAt: Date.now() };
+}
+
 export function saveProgression(data) {
-  const doc = { version: SAVE_VERSION, data, checksum: checksum(data), savedAt: Date.now() };
+  const doc = sealProgression(data);
   lsSet('progression', doc); // offline cache first; the cloud push is debounced
   queueCloudSave(doc);
 }

@@ -6,8 +6,30 @@ import * as sessionMod from './session.js';
 import * as render from './render.js';
 import * as audio from './audio.js';
 import * as platform from './platform.js';
-import { t, tg, ts, setLang, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
+import { t, tg, ts, el, announce, initLiveRegion, trapFocus, piecePreview } from './ui.js';
 import * as gfx from './gfx.js';
+import { language, onLanguage, bindLanguageSelect } from './i18n.js';
+
+// Display names for content / built-in values (the data stays English).
+const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+const camel = (id) => id.split('-').map(cap).join('');
+const themeName = (th) => t('theme' + cap(th.id));
+const challengeName = (c) => t('ch' + camel(c.id));
+const challengeDesc = (c) => t('ch' + camel(c.id) + 'Desc');
+const practiceName = (d) => t('pr' + cap(d.id));
+const practiceDesc = (d) => t('pr' + cap(d.id) + 'Desc');
+const ACH_KEYS = { first_clear: 'achFirstClear', combo_master: 'achComboMaster', streak_week: 'achStreakWeek', journey_20: 'achJourney20', marathon: 'achMarathon' };
+const achName = (a) => (ACH_KEYS[a.key] ? t(ACH_KEYS[a.key]) : a.name);
+const achDesc = (a) => (ACH_KEYS[a.key] ? t(ACH_KEYS[a.key] + 'Desc') : a.description);
+const TUT_KEYS = { 'place-piece': 'tutPlace', 'clear-row': 'tutClear' };
+const tutTitle = (st) => t((TUT_KEYS[st.id] || 'tutCombo') + 'Title');
+const tutText = (st) => t((TUT_KEYS[st.id] || 'tutCombo') + 'Text');
+/** Built-in fallback names ('Guest', 'Player <id>') follow the game language. */
+function displayName(name) {
+  const m = /^Player (\S+)$/.exec(String(name || ''));
+  if (m) return t('playerN', { id: m[1] });
+  return name === 'Guest' ? t('guest') : name;
+}
 
 // App screens follow the state model: boot → title → mode-select → preparing
 // → tutorial/countdown → active ↔ paused → resolving → results → progression.
@@ -44,14 +66,21 @@ function haptic() {
 async function boot() {
   buildShell();
   applySettingsToAudio();
-  setLang(app.settings.lang);
-  await platform.init(); // reads/strips the launch token, pulls cloud progress, platform settings + controls
-  app.progression = platform.loadProgression(); // remote doc wins when present
+  // Older builds kept an en/zh choice in the settings doc; carry zh over once.
+  if (app.settings.lang === 'zh' && language && language.choice() === 'auto') language.setChoice('zh');
+  delete app.settings.lang;
+  onLanguage(() => relabel());
+  await platform.init(); // reads/strips the launch token, pulls + merges cloud progress, platform settings + controls
+  app.progression = platform.loadProgression(); // cloud and local progress merged
   if (platform.isHosted()) {
     Object.assign(app.settings, platform.loadSettings()); // platform preferences win
-    setLang(app.settings.lang);
     applySettingsToAudio();
   }
+  // Another device saved first: platform.js merged both; adopt the result.
+  platform.onProgressMerged(() => {
+    app.progression = platform.loadProgression();
+    if (app.screen === 'title') showTitle();
+  });
   platform.onAuthChange((a) => {
     if (a.signedIn) return;
     toast(ts('signedOut'));
@@ -184,11 +213,14 @@ function openOverlay(node, { modal = true } = {}) {
 }
 function closeOverlay() {
   if (app.releaseTrap) { app.releaseTrap(); app.releaseTrap = null; }
+  if (app.unbindLanguage) { app.unbindLanguage(); app.unbindLanguage = null; }
   overlayRoot.innerHTML = '';
 }
 
 function menuButton(label, onClick, opts = {}) {
-  return el('button', { class: 'menu-btn' + (opts.primary ? ' primary' : ''), text: label, onclick: onClick });
+  const b = el('button', { class: 'menu-btn' + (opts.primary ? ' primary' : ''), text: label, onclick: onClick });
+  if (opts.action) b.dataset.action = opts.action; // stable hook for tests (labels are localized)
+  return b;
 }
 
 function idButton(id, label, onClick) {
@@ -236,6 +268,7 @@ function keysText() {
 // ---------------------------------------------------------------- title
 function showTitle() {
   app.screen = 'title';
+  app.rerender = () => showTitle();
   closeOverlay();
   updateHud();
 
@@ -248,12 +281,12 @@ function showTitle() {
   const panel = el('section', { class: 'panel title-panel', 'aria-labelledby': 'title-h' }, [
     el('h2', { id: 'title-h', text: t('title') }),
     el('p', { class: 'tagline', text: t('tagline') }),
-    menuButton(t('play'), () => showModeSelect(), { primary: true }),
-    resumeSnap ? menuButton(`${t('daily')} — ${t('resume')}`, () => resumeDaily(resumeSnap)) : null,
-    menuButton(t('daily') + (dailyDone ? ` ✓` : ''), () => setupDaily()),
-    menuButton(`${t('journey')} — ${t('stage')} ${prog.journeyStage}`, () => setupJourney(prog.journeyStage)),
-    menuButton(t('settings'), () => showSettings()),
-    menuButton(t('help'), () => showHelp()),
+    menuButton(t('play'), () => showModeSelect(), { primary: true, action: 'play' }),
+    resumeSnap ? menuButton(`${t('daily')} — ${t('resume')}`, () => resumeDaily(resumeSnap), { action: 'resume-daily' }) : null,
+    menuButton(t('daily') + (dailyDone ? ` ✓` : ''), () => setupDaily(), { action: 'daily' }),
+    menuButton(`${t('journey')} — ${t('stage')} ${prog.journeyStage}`, () => setupJourney(prog.journeyStage), { action: 'journey' }),
+    menuButton(t('settings'), () => showSettings(), { action: 'settings' }),
+    menuButton(t('help'), () => showHelp(), { action: 'help' }),
     platform.canSignIn() ? idButton('btn-signin', ts('signIn'), () => platform.signIn()) : null,
     platform.inviteLink() ? idButton('btn-invite', ts('invite'), () => copyInvite()) : null,
   ]);
@@ -265,15 +298,16 @@ function showTitle() {
 // ---------------------------------------------------------------- mode select
 function showModeSelect() {
   app.screen = 'mode-select';
+  app.rerender = () => showModeSelect();
   const panel = el('section', { class: 'panel', 'aria-labelledby': 'mode-h' }, [
     el('h2', { id: 'mode-h', text: t('play') }),
-    menuButton(t('learn'), () => startLearn()),
-    menuButton(t('journey'), () => setupJourney(app.progression.journeyStage)),
-    menuButton(t('daily'), () => setupDaily()),
-    menuButton(t('practice'), () => showPracticeSetup()),
-    menuButton(t('challenge'), () => showChallengeSetup()),
-    menuButton(t('scores'), () => showScores()),
-    menuButton(t('back'), () => showTitle()),
+    menuButton(t('learn'), () => startLearn(), { action: 'learn' }),
+    menuButton(t('journey'), () => setupJourney(app.progression.journeyStage), { action: 'journey' }),
+    menuButton(t('daily'), () => setupDaily(), { action: 'daily' }),
+    menuButton(t('practice'), () => showPracticeSetup(), { action: 'practice' }),
+    menuButton(t('challenge'), () => showChallengeSetup(), { action: 'challenge' }),
+    menuButton(t('scores'), () => showScores(), { action: 'scores' }),
+    menuButton(t('back'), () => showTitle(), { action: 'back' }),
   ]);
   openOverlay(panel, { modal: false });
 }
@@ -295,13 +329,14 @@ function setupCard({ title, lines, ranked, onStart }) {
     el('p', { text: t('rulesSummary') }),
     el('ul', {}, lines.filter(Boolean).map(l => el('li', { text: l }))),
     el('p', { class: 'ranked-line', text: ranked ? t('ranked') : t('unranked') }),
-    menuButton(t('start'), onStart, { primary: true }),
-    menuButton(t('back'), () => showModeSelect()),
+    menuButton(t('start'), onStart, { primary: true, action: 'start' }),
+    menuButton(t('back'), () => showModeSelect(), { action: 'back' }),
   ]);
   openOverlay(panel, { modal: false });
 }
 
 function setupJourney(stageIdx) {
+  app.rerender = () => setupJourney(stageIdx);
   const stage = content.STAGES[Math.min(stageIdx, content.STAGES.length) - 1];
   setupCard({
     title: `${t('journey')} — ${t('stage')} ${stage.index} (${t(stage.difficulty)})` + (stage.mastery ? ` — ${t('mastery')}` : ''),
@@ -323,6 +358,7 @@ function setupJourney(stageIdx) {
 }
 
 function setupDaily() {
+  app.rerender = () => setupDaily();
   const daily = content.dailySeed(platform.syncedDate());
   setupCard({
     title: `${t('daily')} — ${daily.dayKey}`,
@@ -337,15 +373,16 @@ function setupDaily() {
 
 function showPracticeSetup() {
   app.screen = 'preparing';
+  app.rerender = () => showPracticeSetup();
   const panel = el('section', { class: 'panel', 'aria-labelledby': 'prac-h' }, [
     el('h2', { id: 'prac-h', text: t('practice') }),
     ...content.PRACTICE_DIFFICULTIES.map(d =>
-      menuButton(`${d.name} — ${d.description}`, () => startSession({
+      menuButton(`${practiceName(d)} — ${practiceDesc(d)}`, () => startSession({
         mode: 'practice',
         seed: Math.floor(Math.random() * 0x7fffffff),
         opts: { allowUndo: d.id === 'relaxed' },
         meta: { difficulty: d.id },
-      }))),
+      }), { action: 'practice-' + d.id })),
     menuButton(t('back'), () => showModeSelect()),
   ]);
   openOverlay(panel, { modal: false });
@@ -353,10 +390,11 @@ function showPracticeSetup() {
 
 function showChallengeSetup() {
   app.screen = 'preparing';
+  app.rerender = () => showChallengeSetup();
   const panel = el('section', { class: 'panel', 'aria-labelledby': 'chal-h' }, [
     el('h2', { id: 'chal-h', text: t('challenge') }),
     ...content.CHALLENGES.map(c =>
-      menuButton(`${c.name} — ${c.description}`, () => startSession({
+      menuButton(`${challengeName(c)} — ${challengeDesc(c)}`, () => startSession({
         mode: 'challenge', seed: c.seed,
         opts: { goalScore: c.goalScore, moveLimit: c.moveLimit, allowUndo: false },
         meta: { challenge: c.id },
@@ -368,6 +406,7 @@ function showChallengeSetup() {
 
 function showScores() {
   app.screen = 'scores';
+  app.rerender = () => showScores();
   const board = platform.getLeaderboard();
   const prog = platform.loadProgression();
   const hostedBox = el('div', {});
@@ -376,18 +415,18 @@ function showScores() {
     el('h3', { text: t('leaderboard') }),
     board.length
       ? el('table', { class: 'score-table' }, [
-          el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('score') }), el('th', { text: 'Mode' }), el('th', { text: 'Seed' }), el('th', { text: t('player') })]),
+          el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('score') }), el('th', { text: t('colMode') }), el('th', { text: t('colSeed') }), el('th', { text: t('player') })]),
           ...board.slice(0, 10).map((e, i) => el('tr', {}, [
             el('td', { text: String(i + 1) }), el('td', { text: String(e.score) }),
-            el('td', { text: e.mode }), el('td', { text: String(e.seed) }),
-            el('td', { text: e.player || '—' }),
+            el('td', { text: t(e.mode) }), el('td', { text: String(e.seed) }),
+            el('td', { text: e.player ? displayName(e.player) : '—' }),
           ])),
         ])
       : el('p', { text: '—' }),
     hostedBox,
     el('h3', { text: t('achievements') }),
     el('ul', {}, platform.ACHIEVEMENTS.map(a =>
-      el('li', { text: `${prog.achievements[a.key] ? '✓' : '○'} ${a.name} — ${a.description}` }))),
+      el('li', { text: `${prog.achievements[a.key] ? '✓' : '○'} ${achName(a)} — ${achDesc(a)}` }))),
     menuButton(t('back'), () => showModeSelect()),
   ]);
   openOverlay(panel, { modal: false });
@@ -402,7 +441,7 @@ function showScores() {
         el('table', { class: 'score-table' }, [
           el('tr', {}, [el('th', { text: '#' }), el('th', { text: t('player') }), el('th', { text: t('score') })]),
           ...hb.entries.map(e => el('tr', {}, [
-            el('td', { text: String(e.rank) }), el('td', { text: e.name }), el('td', { text: String(e.score) }),
+            el('td', { text: String(e.rank) }), el('td', { text: displayName(e.name) }), el('td', { text: String(e.score) }),
           ])),
         ]),
       );
@@ -496,13 +535,14 @@ function resumeGame() {
 }
 
 function showPause() {
+  app.rerender = () => showPause();
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'pause-h' }, [
     el('h2', { id: 'pause-h', text: t('pause') }),
-    menuButton(t('resume'), () => resumeGame(), { primary: true }),
-    menuButton(t('restart'), () => restartRound()),
-    menuButton(t('settings'), () => showSettings(() => showPause())),
-    menuButton(t('help'), () => showHelp(() => showPause())),
-    menuButton(t('backToTitle'), () => endToTitle()),
+    menuButton(t('resume'), () => resumeGame(), { primary: true, action: 'resume' }),
+    menuButton(t('restart'), () => restartRound(), { action: 'restart' }),
+    menuButton(t('settings'), () => showSettings(() => showPause()), { action: 'settings' }),
+    menuButton(t('help'), () => showHelp(() => showPause()), { action: 'help' }),
+    menuButton(t('backToTitle'), () => endToTitle(), { action: 'title' }),
   ]);
   openOverlay(panel);
 }
@@ -522,8 +562,8 @@ function showTutorialCard() {
   const step = content.TUTORIAL_STEPS[app.tutorialStep];
   if (!step) return;
   const card = el('aside', { class: 'tutorial-card', role: 'note' }, [
-    el('strong', { text: `${app.tutorialStep + 1}/${content.TUTORIAL_STEPS.length} — ${step.title}` }),
-    el('p', { text: step.text }),
+    el('strong', { text: `${app.tutorialStep + 1}/${content.TUTORIAL_STEPS.length} — ${tutTitle(step)}` }),
+    el('p', { text: tutText(step) }),
     // the card can be tucked away so it never blocks board cells; the title
     // stays as a chip that brings the text back
     el('button', { class: 'chip-btn tutorial-toggle', text: t('hideLesson'), 'aria-expanded': 'true', onclick: (e) => {
@@ -536,7 +576,7 @@ function showTutorialCard() {
   const old = document.querySelector('.tutorial-card');
   if (old) old.remove();
   leftRail.appendChild(card);
-  announce(step.title + '. ' + step.text);
+  announce(tutTitle(step) + '. ' + tutText(step));
   platform.funnelEvent('tutorial_step', { step: step.id });
 }
 
@@ -586,7 +626,7 @@ function updateHud() {
 // Profile/sync chip: the platform nickname when hosted, local guest otherwise.
 function updatePlayerChip() {
   if (!hudEls.player) return;
-  const name = platform.playerName();
+  const name = displayName(platform.playerName());
   const state = platform.getSyncState();
   hudEls.player.textContent = state === 'offline' ? name : `${name} · ${t('sync' + state[0].toUpperCase() + state.slice(1))}`;
 }
@@ -632,7 +672,7 @@ function updateMirror() {
       const cell = el('button', {
         role: 'gridcell',
         class: 'mirror-cell' + (filled ? ' filled' : ''),
-        'aria-label': `${r + 1},${c + 1} ${filled ? 'filled' : 'empty'}`,
+        'aria-label': t('cellLabel', { row: r + 1, col: c + 1, state: t(filled ? 'cellFilled' : 'cellEmpty') }),
         tabindex: '-1',
         onclick: () => { app.cursor = [r, c]; tryPlace(); },
       });
@@ -684,8 +724,8 @@ function renderRails(mode) {
   // Pause lives in the status bar and offers Restart; the rail keeps in-play aids.
   const undoOk = app.session && app.session.allowUndo;
   rightRail.appendChild(el('div', { class: 'rail-block actions' }, [
-    el('button', { class: 'chip-btn', text: t('hint'), onclick: () => showHint() }),
-    undoOk ? el('button', { class: 'chip-btn', text: t('undo'), onclick: () => doUndo() }) : null,
+    el('button', { class: 'chip-btn', 'data-action': 'hint', text: t('hint'), onclick: () => showHint() }),
+    undoOk ? el('button', { class: 'chip-btn', 'data-action': 'undo', text: t('undo'), onclick: () => doUndo() }) : null,
     el('button', { class: 'chip-btn', text: t('fitBoard'), title: 'C', onclick: () => onResize() }),
   ]));
 }
@@ -751,7 +791,7 @@ function handlePlacement(events) {
     audio.play.clear(events.lineCount);
     if (s.comboStreak > 1) audio.play.combo(s.comboStreak);
     announce(t('announceClear', { n: events.lineCount, score: s.score }));
-    if (platform.unlockAchievement('first_clear')) announce(t('achievements') + ': First Clear');
+    if (platform.unlockAchievement('first_clear')) announce(t('achievements') + ': ' + t('achFirstClear'));
     if (s.comboStreak >= 4) platform.unlockAchievement('combo_master');
     if (s.score >= 1000) platform.unlockAchievement('marathon');
   } else {
@@ -842,15 +882,22 @@ function finishRound() {
 
   // Signed in, a ranked round also posts its score to the StarHermit high-score
   // board; the line below fills in with the player's rank there.
-  const lbLine = sess.ranked && platform.isHosted()
-    ? el('p', { class: 'reason', id: 'results-lb', role: 'status', text: ts('lbPosting') }) : null;
-  if (lbLine) {
+  const res = { sess, s, won, lb: sess.ranked && platform.isHosted() ? { key: 'lbPosting' } : null };
+  if (res.lb) {
     platform.postLeaderboard(s.score).then((r) => {
-      lbLine.textContent = !r.posted ? ts('lbNotPosted')
-        : r.rank ? ts('lbRank', { rank: r.rank }) : ts('lbPosted');
+      res.lb = !r.posted ? { key: 'lbNotPosted' } : r.rank ? { key: 'lbRank', vars: { rank: r.rank } } : { key: 'lbPosted' };
+      const line = document.getElementById('results-lb');
+      if (line && app.screen === 'results') line.textContent = ts(res.lb.key, res.lb.vars);
     });
   }
+  showResults(res);
+}
 
+/** Results card (re-rendered in place on a language change). */
+function showResults(res) {
+  const { sess, s, won } = res;
+  app.rerender = () => showResults(res);
+  const lbLine = res.lb ? el('p', { class: 'reason', id: 'results-lb', role: 'status', text: ts(res.lb.key, res.lb.vars) }) : null;
   const b = s.breakdown;
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'res-h' }, [
     el('h2', { id: 'res-h', text: won ? t('stageClear') : t('gameOver') }),
@@ -874,7 +921,7 @@ function finishRound() {
     sess.mode === 'journey' && won && sess.meta.stage < content.STAGES.length
       ? menuButton(t('nextStage'), () => setupJourney(app.progression.journeyStage)) : null,
     menuButton(t('scores'), () => showScores()),
-    menuButton(t('backToTitle'), () => endToTitle()),
+    menuButton(t('backToTitle'), () => endToTitle(), { action: 'title' }),
   ]);
   openOverlay(panel);
 }
@@ -910,6 +957,7 @@ function clearDailySnapshot() {
 function showSettings(onBack) {
   const s = app.settings;
   const back = onBack || (() => (app.session ? showPause() : showTitle()));
+  app.rerender = () => showSettings(onBack);
   function row(label, control) {
     return el('div', { class: 'setting-row' }, [el('label', { text: label }), control]);
   }
@@ -936,12 +984,16 @@ function showSettings(onBack) {
     });
     return inp;
   }
+  // Game language (sh-language.js): Automatic + the nine locales + 中文, saved as ui.language.
+  const langSelect = el('select', { id: 'set-language', 'data-game-language': 'choice' });
+  const langStatus = el('p', { class: 'setting-note', role: 'status', 'data-game-language': 'status' });
   const panel = el('section', { class: 'panel settings-panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'set-h' }, [
     el('h2', { id: 'set-h', text: t('settings') }),
-    row(t('language'), select('lang', [['en', 'English'], ['zh', '中文']])),
-    row(t('theme'), select('theme', content.THEMES.map(th => [th.id, th.name]))),
+    row(t('language'), langSelect),
+    langStatus,
+    row(t('theme'), select('theme', content.THEMES.map(th => [th.id, themeName(th)]))),
     el('button', { id: 'settings-graphics', class: 'menu-btn', 'data-action': 'open-graphics', text: `${tg('graphics')} …`, onclick: () => showGraphics(() => showSettings(onBack)) }),
-    row(t('colorPalette'), select('colorPalette', [['standard', 'Standard'], ['deuteranopia', 'Deuteranopia'], ['protanopia', 'Protanopia'], ['tritanopia', 'Tritanopia']])),
+    row(t('colorPalette'), select('colorPalette', [['standard', t('palStandard')], ['deuteranopia', t('palDeuteranopia')], ['protanopia', t('palProtanopia')], ['tritanopia', t('palTritanopia')]])),
     row(t('reducedMotion'), toggle('reducedMotion')),
     row(t('highContrast'), toggle('highContrast')),
     row(t('largeText'), toggle('largeText')),
@@ -952,9 +1004,10 @@ function showSettings(onBack) {
     row(t('effects'), slider('volEffects', 'effects')),
     row(t('ambience'), slider('volAmbience', 'ambience')),
     row(t('muted'), (() => { const i = toggle('muted'); return i; })()),
-    menuButton(t('back'), back, { primary: true }),
+    menuButton(t('back'), back, { primary: true, action: 'back' }),
   ]);
   openOverlay(panel);
+  app.unbindLanguage = bindLanguageSelect(langSelect, langStatus);
 }
 
 function persistSettings(announceChange = true) {
@@ -965,7 +1018,6 @@ function persistSettings(announceChange = true) {
 
 function applySettings() {
   const s = app.settings;
-  setLang(s.lang);
   render.setReducedMotion(s.reducedMotion);
   render.setPalette(s.colorPalette);
   render.setGraphics(graphicsSettings());
@@ -996,6 +1048,7 @@ function graphicsSettings() {
 // resolution, frame-rate readout and a live cost summary. Every change
 // applies immediately and is saved with the other settings.
 function showGraphics(onBack) {
+  app.rerender = () => showGraphics(onBack);
   const s = app.settings;
   let g = { ...graphicsSettings() };
   const save = () => { s.graphics = g; persistSettings(); refresh(); };
@@ -1064,7 +1117,7 @@ function showGraphics(onBack) {
     rowOf(tg('gfxShowFps'), showFps, 'gfx-fps'),
     summary,
     note,
-    menuButton(t('back'), onBack, { primary: true }),
+    menuButton(t('back'), onBack, { primary: true, action: 'back' }),
   ]);
   openOverlay(panel);
   refresh();
@@ -1080,6 +1133,7 @@ function showGraphics(onBack) {
 
 function showHelp(onBack) {
   const back = onBack || (() => (app.session ? showPause() : showTitle()));
+  app.rerender = () => showHelp(onBack);
   const card = (title, text) => el('div', { class: 'help-card' }, [el('h3', { text: title }), el('p', { text })]);
   const panel = el('section', { class: 'panel', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'help-h' }, [
     el('h2', { id: 'help-h', text: t('howToPlay') }),
@@ -1090,6 +1144,25 @@ function showHelp(onBack) {
     menuButton(t('back'), back, { primary: true }),
   ]);
   openOverlay(panel);
+}
+
+// ---------------------------------------------------------------- language
+/** Language changed: relabel the shell, HUD, tray, board mirror, rails and the open card in place. */
+function relabel() {
+  const brand = document.querySelector('#statusbar .brand');
+  if (brand) brand.textContent = t('title');
+  if (hudEls.pauseBtn) hudEls.pauseBtn.textContent = t('pause');
+  if (mirrorEl) mirrorEl.setAttribute('aria-label', t('boardLabel'));
+  if (trayEl) trayEl.setAttribute('aria-label', t('trayLabel'));
+  updateHud();
+  if (app.session) {
+    updateTray();
+    updateMirror();
+    updateGhost();
+    if (app.screen === 'active' || app.screen === 'paused') renderRails(app.session.mode);
+    if (app.session.mode === 'learn' && content.TUTORIAL_STEPS[app.tutorialStep] && document.querySelector('.tutorial-card')) showTutorialCard();
+  }
+  if (overlayRoot && overlayRoot.firstChild && app.rerender) app.rerender();
 }
 
 // ---------------------------------------------------------------- input

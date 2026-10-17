@@ -48,6 +48,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchToken, stubStarHermit } from './starhermit-e2e.mjs';
 import * as THREE from 'three';
 import * as rules from '../src/rules.js';
 
@@ -218,11 +219,11 @@ function legalMoves(state) {
 
 async function startPractice(page, { tap } = {}) {
   const click = (sel) => tap ? page.tap(sel) : page.click(sel);
-  await click('#app .menu-btn:has-text("Play")');
+  await click('#app .title-panel .menu-btn[data-action="play"]');
   await page.waitForSelector('#app .panel');
-  await click('#app .panel .menu-btn:has-text("Practice")');
+  await click('#app .panel .menu-btn[data-action="practice"]');
   await page.waitForSelector('#app .panel');
-  await click('#app .panel .menu-btn:has-text("Relaxed")');
+  await click('#app .panel .menu-btn[data-action="practice-relaxed"]');
   await page.waitForSelector('#tray .tray-piece');
 }
 
@@ -231,9 +232,9 @@ async function startPractice(page, { tap } = {}) {
 // ranked Start button. Journey is ranked, so its finishRound must reach the
 // results overlay without throwing (the prior `seed: s.state.seed` defect).
 async function startJourney(page) {
-  await page.click('#app .menu-btn:has-text("Journey")');
+  await page.click('#app .title-panel .menu-btn[data-action="journey"]');
   await page.waitForSelector('#app .panel');
-  await page.click('#app .panel .menu-btn:has-text("Start")');
+  await page.click('#app .panel .menu-btn[data-action="start"]');
   await page.waitForSelector('#tray .tray-piece');
 }
 
@@ -249,7 +250,7 @@ async function graphicsPass(page, name, { tap }) {
   const waitAttr = (attr, v) => page.waitForFunction(([a, x]) => document.body.getAttribute(a) === x, [attr, v], { timeout: 20000, polling: 100 });
   const openGraphics = async () => {
     await page.waitForSelector('#app .title-panel', { timeout: 15000 });
-    await press('#app .title-panel .menu-btn:has-text("Settings")');
+    await press('#app .title-panel .menu-btn[data-action="settings"]');
     await page.waitForSelector('#settings-graphics');
     await press('#settings-graphics');
     await page.waitForSelector('#gfx-preset');
@@ -297,8 +298,8 @@ async function graphicsPass(page, name, { tap }) {
   await waitAttr('data-gfx-preset', 'low');
   await page.waitForTimeout(300);
   // Back is reachable (the panel scrolls) and returns to Settings
-  await page.locator('.graphics-panel .menu-btn:has-text("Back")').scrollIntoViewIfNeeded();
-  await press('.graphics-panel .menu-btn:has-text("Back")');
+  await page.locator('.graphics-panel .menu-btn[data-action="back"]').scrollIntoViewIfNeeded();
+  await press('.graphics-panel .menu-btn[data-action="back"]');
   await page.waitForSelector('#settings-graphics');
   ok(`${name}: Ultra and Low render; preset clears overrides; Back returns to Settings`);
 }
@@ -363,13 +364,13 @@ async function runPass(browser, name, ctxOpts, { full }) {
       await page.click('#btn-pause');
       await page.waitForSelector('#overlay-root .panel');
       await page.screenshot({ path: SHOT('pause', name) });
-      await page.click('#overlay-root .panel .menu-btn:has-text("Resume")');
+      await page.click('#overlay-root .panel .menu-btn[data-action="resume"]');
       await page.waitForSelector('#tray .tray-piece');
       ok(`${name}: pause and resume work`);
 
       // ---- extra feature: hint reveals a legal anchor (visible Hint button) ----
       const beforeHintFilled = (await readState(page)).filled;
-      await page.click('#rail-right .rail-block.actions .chip-btn:has-text("Hint")');
+      await page.click('#rail-right .rail-block.actions .chip-btn[data-action="hint"]');
       await page.waitForTimeout(150);
       ok(`${name}: hint button invoked (cursor moved to a legal anchor)`);
       // verify the hint actually helps: it sets cursor to a legal anchor, so a
@@ -383,7 +384,7 @@ async function runPass(browser, name, ctxOpts, { full }) {
       const rectBefore = await canvasRect(page);
       const afterPlace = await placeOnePiece(page, stBefore, rectBefore);
       if (!afterPlace || afterPlace.score <= stBefore.score) throw new Error('placement did not register for undo check');
-      await page.click('#rail-right .rail-block.actions .chip-btn:has-text("Undo")');
+      await page.click('#rail-right .rail-block.actions .chip-btn[data-action="undo"]');
       // Undo returns to the pre-placement score and board.
       await page.waitForFunction(
         (n) => parseInt((document.getElementById('hud-score')?.textContent || '').replace(/[^0-9]/g, ''), 10) === n,
@@ -438,7 +439,7 @@ async function runPass(browser, name, ctxOpts, { full }) {
       // piece fits). The prior defect threw at src/main.js:620 here, so reaching
       // the results overlay is an assertion in itself; the outer pass's
       // pageerror/console collectors verify no error was raised.
-      await page.click('#overlay-root .panel .menu-btn:has-text("Back to Title")');
+      await page.click('#overlay-root .panel .menu-btn[data-action="title"]');
       await page.waitForSelector('#app .title-panel');
       await startJourney(page);
       let rguard = 0;
@@ -512,6 +513,73 @@ async function runPass(browser, name, ctxOpts, { full }) {
   console.log(`ok - ${name}: no page errors`);
 }
 
+// ---------- language + report pass (signed in, stubbed StarHermit API) ----------
+// Automatic follows the account's preferred language (fr-CA); the Settings
+// language select (bound to sh-language.js; also offers 中文) relabels the
+// card live and PUTs ui.language; Report a problem posts from the Graphics
+// card; a German round shows German HUD text; switching back to Automatic
+// from the pause menu re-renders the round's HUD without restarting it.
+async function languagePass(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (!['error', 'warning'].includes(m.type()) || browserNoise.test(m.text())) return;
+    errors.push(`console: ${m.text()}`);
+  });
+  try {
+    const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+    await page.goto('about:blank');
+    await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA', null, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector('#app .title-panel [data-action="play"]')?.textContent === 'Jouer');
+    await page.click('#app .title-panel [data-action="settings"]');
+    const choice = page.locator('#set-language');
+    const auto = await choice.locator('option').first().textContent();
+    if (auto !== 'Automatique — Français (Canada)') throw new Error(`Automatic label not resolved: "${auto}"`);
+    if ((await choice.locator('option[value="zh"]').textContent()) !== '中文') throw new Error('zh option label');
+    await choice.selectOption('it-IT');
+    await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+    await page.waitForFunction(() => document.getElementById('set-h')?.textContent === 'Impostazioni');
+    await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+    if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+    if (await page.locator('#set-language').inputValue() !== 'it-IT') throw new Error('select lost its value on relabel');
+    await page.click('#settings-graphics');
+    await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+    if (await page.locator('[data-game-language="choice"]').count() !== 0) throw new Error('a second language selector is shown');
+    await page.fill('[data-game-report="title"]', 'Test report');
+    await page.click('[data-game-report="send"]');
+    await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+    if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+    ok(`${name}: Automatic resolved fr-CA from the account; Italian applied live, saved to ui.language; report posted`);
+
+    await page.locator('.graphics-panel .menu-btn[data-action="back"]').scrollIntoViewIfNeeded();
+    await page.click('.graphics-panel .menu-btn[data-action="back"]');
+    await page.locator('#set-language').selectOption('de-DE');
+    await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+    await page.click('.settings-panel .menu-btn[data-action="back"]');
+    await startPractice(page);
+    const hud = (await page.textContent('#hud-score')).trim();
+    if (!/^Punkte:/.test(hud)) throw new Error(`HUD not German: "${hud}"`);
+    await page.screenshot({ path: SHOT('language-de', name) });
+    await page.click('#btn-pause');
+    await page.click('#overlay-root .panel .menu-btn[data-action="settings"]');
+    await page.screenshot({ path: SHOT('language-de-settings', name) });
+    await page.locator('#set-language').selectOption('auto');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    if ((await page.textContent('#set-h')).trim() !== 'Paramètres') throw new Error('settings not relabelled in French');
+    await page.click('.settings-panel .menu-btn[data-action="back"]');
+    await page.click('#overlay-root .panel .menu-btn[data-action="resume"]');
+    if (!/^Pointage:/.test((await page.textContent('#hud-score')).trim())) throw new Error('HUD not re-rendered in fr-CA');
+    if ((await page.getAttribute('#tray', 'aria-label')) !== 'Pièces disponibles') throw new Error('tray label not relabelled');
+    ok(`${name}: German round HUD, then Automatic (fr-CA) re-rendered settings, HUD and tray mid-round`);
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`${name} language pass had page errors:\n  ${errors.join('\n  ')}`);
+}
+
 // ---------- main ----------
 let browser = null;
 try {
@@ -523,6 +591,8 @@ try {
   await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true });
   await runPass(browser, 'mobile',
     { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false });
+  await languagePass(browser, 'desktop-language', { viewport: { width: 1280, height: 800 } });
+  await languagePass(browser, 'mobile-language', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   console.log('\nE2E PASS — timber-grid, desktop + mobile, no page errors');
 } catch (e) {
   failures++;
