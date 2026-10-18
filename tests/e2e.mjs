@@ -272,6 +272,8 @@ async function graphicsPass(page, name, { tap }) {
   await page.selectOption('#gfx-preset', 'high');
   await waitAttr('data-gfx-preset', 'high');
   await page.waitForFunction(() => /2048² shadows/.test(document.getElementById('gfx-summary').textContent), null, { timeout: 20000, polling: 100 });
+  const sumText = await page.locator('#gfx-summary').textContent();
+  if (!/ · Level 0 · /.test(sumText)) throw new Error(`summary lacks the hardware level: ${sumText}`);
   const presetLabel = await page.locator('#gfx-bloom option[value="preset"]').textContent();
   if (presetLabel !== 'From preset (On)') throw new Error(`bad preset label "${presetLabel}"`);
   await page.selectOption('#gfx-bloom', 'off');

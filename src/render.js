@@ -12,7 +12,7 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { N } from './rules.js';
-import { detectPreset, describe, resolve, SHADOW_MAP, PARTICLE_COUNT, CATEGORIES } from './gfx.js';
+import { detectLevel, presetForLevel, describe, resolve, chipCap, SHADOW_MAP, MOTE_MAX, CATEGORIES } from './gfx.js';
 
 // Framing constants (no magic offsets in code below).
 export const FRAMING = {
@@ -97,6 +97,7 @@ let clock = 0; // seconds of decorative time (frozen under reduced motion)
 // Graphics state.
 let gpuName = '';
 let detected = 'balanced';
+let gpuLevel = 4;
 let savedGfx = {};
 let q = resolve({}, 'balanced');
 let ctxAA = false;
@@ -162,9 +163,16 @@ export function init(canvas, initialTheme, opts = {}) {
   reducedMotion = !!opts.reducedMotion;
   palette = opts.palette || 'standard';
   gpuName = probeGpu();
-  detected = detectPreset(gpuName, isMobile());
+  // StarHermit hardware level (src/gpu-level.js): renderer string + device facts (phone/tablet, cores, memory).
+  let sys = { mobile: isMobile() };
+  try {
+    const G = globalThis.StarHermitGpu;
+    if (G) { const d = G.detectSystem(); sys = { ...sys, mobile: sys.mobile || d.mobile, webgl2: d.webgl2, touch: d.touch, screen: d.screen, cores: d.cores, memoryGb: d.memoryGb, astc: d.astc }; }
+  } catch (_) { /* defaults */ }
+  gpuLevel = detectLevel(gpuName, sys);
+  detected = presetForLevel(gpuLevel);
   savedGfx = opts.graphics || {};
-  q = resolve(savedGfx, detected);
+  q = resolve(savedGfx, detected, gpuLevel);
   // Canvas MSAA is fixed at context creation; later MSAA requests without it
   // are served by a multisampled composer target instead.
   ctxAA = q.antialias === 'msaa';
@@ -220,9 +228,10 @@ export function init(canvas, initialTheme, opts = {}) {
 // --- procedural wood ----------------------------------------------------------
 
 // Grey-scale wood grain (values ~0.8–1.0, linear) used as a colour multiplier
-// and bump map: long wavy growth rings plus fine pores. Deterministic.
-function makeWoodTexture() {
-  const size = 256;
+// and bump map: long wavy growth rings plus fine pores. Deterministic; authored
+// at 256 px and sampled into the preset's texture budget (`size`).
+function makeWoodTexture(size = 256) {
+  const A = 256, k = A / size;
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const g = c.getContext('2d');
@@ -231,11 +240,11 @@ function makeWoodTexture() {
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   const pores = new Float32Array(size * size);
   for (let i = 0; i < pores.length; i++) pores[i] = rnd();
-  const waves = [0, 1, 2].map(() => ({ a: 2 + rnd() * 5, f: (1 + Math.floor(rnd() * 3)) * Math.PI * 2 / size, p: rnd() * 6.28 }));
+  const waves = [0, 1, 2].map(() => ({ a: 2 + rnd() * 5, f: (1 + Math.floor(rnd() * 3)) * Math.PI * 2 / A, p: rnd() * 6.28 }));
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      let yy = y;
-      for (const w of waves) yy += w.a * Math.sin(x * w.f + w.p);
+      let yy = y * k;
+      for (const w of waves) yy += w.a * Math.sin(x * k * w.f + w.p);
       const ring = 0.5 + 0.5 * Math.sin(yy * 0.32 + Math.sin(yy * 0.05) * 3);
       const streak = Math.pow(ring, 3);
       // pores stretch along the grain: average a short horizontal run
@@ -272,42 +281,82 @@ function grainPerInstance(mat) {
   return mat;
 }
 
+// Wood material for the preset's shading budget: Lambert (Low) drops the PBR terms, bump and
+// clearcoat; Standard (Balanced) drops clearcoat; Physical (High/Ultra) keeps the lacquer when asked.
+function woodMat(tier, { roughness, metalness = 0, map = null, bumpScale = 0, envMapIntensity = 1, clearcoat = 0, clearcoatRoughness = 0 }) {
+  const b = q.budget;
+  if (tier === 'lambert') return new THREE.MeshLambertMaterial({ map });
+  const bumpMap = map && b.bump && bumpScale ? map : null;
+  const base = { roughness, metalness, map, envMapIntensity, ...(bumpMap ? { bumpMap, bumpScale } : {}) };
+  if (tier === 'physical' && clearcoat) return new THREE.MeshPhysicalMaterial({ ...base, clearcoat, clearcoatRoughness });
+  return new THREE.MeshStandardMaterial(base);
+}
+
+// Per-preset assets (src/gfx.js BUDGETS): wood texture size, bump, rounded-corner segments and the
+// shading model. Rebuilt only when the budget's asset key changes; returns true when it did.
+let assetKey = null;
+function buildAssets() {
+  const b = q.budget;
+  const key = [b.material, b.texture, b.bump, b.cellSeg, b.pieceSeg].join('|');
+  if (key === assetKey) return false;
+  assetKey = key;
+  for (const name of ['cell', 'piece']) if (geos[name]) geos[name].detailed.dispose();
+  for (const pair of Object.values(mats)) { pair.plain.dispose(); pair.detailed.dispose(); }
+  if (rimMat) rimMat.dispose();
+  if (barMat) barMat.dispose();
+  if (floorMat) { floorMat.map?.dispose(); floorMat.dispose(); }
+  if (woodTex) woodTex.dispose();
+  woodTex = makeWoodTexture(b.texture);
+  const tier = b.material;
+
+  const cs = FRAMING.cellSize - FRAMING.cellGap;
+  geos.cell = { plain: plainBox, detailed: new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, b.cellSeg, LOOK.cellRadius) };
+  geos.piece = { plain: plainBox, detailed: new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, b.pieceSeg, LOOK.pieceRadius) };
+
+  mats.slab = {
+    plain: woodMat(tier, { roughness: 0.8, metalness: 0.05 }),
+    detailed: woodMat(tier, { roughness: 0.78, map: woodTex, bumpScale: 0.6, envMapIntensity: 0.5 }),
+  };
+  mats.cell = {
+    plain: woodMat(tier, { roughness: 0.65, metalness: 0.02 }),
+    detailed: grainPerInstance(woodMat(tier, { roughness: 0.62, map: woodTex, bumpScale: 0.5, envMapIntensity: 0.6 })),
+  };
+  // Placed pieces are lacquered: clearcoat (High/Ultra) gives a crisp highlight that
+  // separates them from the matte board.
+  mats.piece = {
+    plain: woodMat(tier, { roughness: 0.5, metalness: 0.05 }),
+    detailed: grainPerInstance(woodMat(tier, {
+      roughness: 0.5, map: woodTex, bumpScale: 0.4, clearcoat: 0.7, clearcoatRoughness: 0.28, envMapIntensity: 0.9,
+    })),
+  };
+  barMat = woodMat(tier, { roughness: 0.7 });
+  rimMat = grainPerInstance(woodMat(tier, { roughness: 0.6, map: woodTex, bumpScale: 0.6, envMapIntensity: 0.6 }));
+  const floorTex = woodTex.clone();
+  floorTex.repeat.set(5, 14);
+  floorTex.needsUpdate = true;
+  floorMat = woodMat(tier, { roughness: 0.9, map: floorTex, envMapIntensity: 0.2 });
+  if (bars) bars.material = barMat;
+  if (rims) rims.material = rimMat;
+  if (floor) floor.material = floorMat;
+  return true;
+}
+
+let plainBox = null;
+let bars = null;
+let rims = null;
+let floor = null;
+
 function buildBoard() {
   benchGroup = new THREE.Group();
   scene.add(benchGroup);
-  woodTex = makeWoodTexture();
 
   const cs = FRAMING.cellSize - FRAMING.cellGap;
-  geos.cell = {
-    plain: new THREE.BoxGeometry(cs, FRAMING.cellHeight, cs),
-    detailed: new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, 2, LOOK.cellRadius),
-  };
-  geos.piece = {
-    plain: geos.cell.plain,
-    detailed: new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, 3, LOOK.pieceRadius),
-  };
+  plainBox = new THREE.BoxGeometry(cs, FRAMING.cellHeight, cs);
   geos.slab = {
     plain: new THREE.BoxGeometry(N + 5, 0.6, N + 5),
     detailed: new RoundedBoxGeometry(N + 5, 0.6, N + 5, 2, 0.12),
   };
-
-  mats.slab = {
-    plain: new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.05 }),
-    detailed: new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.0, map: woodTex, bumpMap: woodTex, bumpScale: 0.6, envMapIntensity: 0.5 }),
-  };
-  mats.cell = {
-    plain: new THREE.MeshStandardMaterial({ roughness: 0.65, metalness: 0.02 }),
-    detailed: grainPerInstance(new THREE.MeshStandardMaterial({ roughness: 0.62, metalness: 0.0, map: woodTex, bumpMap: woodTex, bumpScale: 0.5, envMapIntensity: 0.6 })),
-  };
-  // Placed pieces are lacquered: clearcoat gives a crisp highlight that
-  // separates them from the matte board.
-  mats.piece = {
-    plain: new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05 }),
-    detailed: grainPerInstance(new THREE.MeshPhysicalMaterial({
-      roughness: 0.5, metalness: 0.0, map: woodTex, bumpMap: woodTex, bumpScale: 0.4,
-      clearcoat: 0.7, clearcoatRoughness: 0.28, envMapIntensity: 0.9,
-    })),
-  };
+  buildAssets();
 
   // Tabletop slab.
   slab = new THREE.Mesh(geos.slab.plain, mats.slab.plain);
@@ -341,26 +390,27 @@ function buildBoard() {
   }
   benchGroup.add(cellMesh, fillMesh, ghostMesh);
 
-  // 3x3 region dividers: slightly raised bars in the gaps between regions.
-  barMat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+  // 3x3 region dividers: slightly raised bars in the gaps between regions — one
+  // instanced mesh (a draw call) for all eight.
+  bars = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), barMat, 8);
   const barY = FRAMING.cellHeight / 2 + 0.02;
   for (let i = 0; i <= 3; i++) {
     const p = (i - 1.5) * 3 * FRAMING.cellSize; // region boundary: ±1.5, ±4.5
-    const hBar = new THREE.Mesh(new THREE.BoxGeometry(N + 0.08, 0.08, 0.08), barMat);
-    const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, N + 0.08), barMat);
-    hBar.position.set(0, barY, p);
-    vBar.position.set(p, barY, 0);
-    hBar.castShadow = vBar.castShadow = true;
-    hBar.userData.bar = vBar.userData.bar = true;
-    benchGroup.add(hBar, vBar);
+    _mat4.makeScale(N + 0.08, 0.08, 0.08); _mat4.setPosition(0, barY, p);
+    bars.setMatrixAt(i * 2, _mat4);
+    _mat4.makeScale(0.08, 0.08, N + 0.08); _mat4.setPosition(p, barY, 0);
+    bars.setMatrixAt(i * 2 + 1, _mat4);
   }
+  bars.castShadow = true;
+  bars.userData.bar = true;
+  bars.raycast = () => {};
+  benchGroup.add(bars);
 
   // Detailed tier: a raised frame around the board and a workshop floor.
   detailGroup = new THREE.Group();
-  rimMat = grainPerInstance(new THREE.MeshStandardMaterial({ roughness: 0.6, map: woodTex, bumpMap: woodTex, bumpScale: 0.6, envMapIntensity: 0.6 }));
   const rimLen = N + LOOK.rimWidth * 2 + 0.1;
   const rimGeo = new RoundedBoxGeometry(rimLen, LOOK.rimHeight, LOOK.rimWidth, 2, 0.06);
-  const rims = new THREE.InstancedMesh(rimGeo, rimMat, 4);
+  rims = new THREE.InstancedMesh(rimGeo, rimMat, 4);
   const edge = N / 2 + 0.05 + LOOK.rimWidth / 2;
   const rimY = -0.12 + LOOK.rimHeight / 2;
   const rot = new THREE.Matrix4();
@@ -370,10 +420,7 @@ function buildBoard() {
   });
   rims.castShadow = rims.receiveShadow = true;
   detailGroup.add(rims);
-  floorMat = new THREE.MeshStandardMaterial({ roughness: 0.9, map: woodTex.clone(), envMapIntensity: 0.2 });
-  floorMat.map.repeat.set(5, 14);
-  floorMat.map.needsUpdate = true;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = LOOK.floorY;
   floor.receiveShadow = true;
@@ -381,8 +428,9 @@ function buildBoard() {
   detailGroup.add(floor);
   benchGroup.add(detailGroup);
 
-  // Ambient sawdust motes drifting in the lamp light (cosmetic).
-  const count = 90;
+  // Ambient sawdust motes drifting in the lamp light (cosmetic). Allocated at the
+  // largest budget; the preset draws q.budget.motes of them.
+  const count = MOTE_MAX;
   const pos = new Float32Array(count * 3);
   const seedArr = new Float32Array(count);
   let s = 99;
@@ -471,8 +519,9 @@ export function setGraphics(saved, force = false) {
   const json = JSON.stringify(saved || {});
   if (!force && json === JSON.stringify(savedGfx)) return;
   savedGfx = JSON.parse(json);
-  q = resolve(savedGfx, detected);
+  q = resolve(savedGfx, detected, gpuLevel);
   if (!renderer) return;
+  if (buildAssets() && theme) setTheme(theme);
   const size = SHADOW_MAP[q.shadows];
   renderer.shadowMap.enabled = size > 0;
   keyLight.castShadow = size > 0;
@@ -525,6 +574,7 @@ export function setGraphics(saved, force = false) {
 
 function applyMotion() {
   if (!motes) return;
+  motes.geometry.setDrawRange(0, Math.min(MOTE_MAX, q.budget.motes));
   motes.visible = q.ambient === 'animated' && !motionOff();
   if (!motes.visible && ghostMesh) ghostMesh.position.y = 0;
 }
@@ -555,6 +605,7 @@ export function graphicsInfo(word) {
   const px = [Math.round(w * pixelRatio), Math.round(h * pixelRatio)];
   return {
     gpu: gpuName || 'unknown GPU',
+    level: gpuLevel,
     detected,
     resolved: q,
     summary: describe(q, px, word),
@@ -566,6 +617,15 @@ export function graphicsInfo(word) {
 
 function needsPost() {
   return q.post || (q.antialias === 'msaa' && !ctxAA);
+}
+
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
 }
 
 function buildPost(w, h) {
@@ -587,11 +647,11 @@ function buildPost(w, h) {
       const hi = q.ao === 'high';
       ao.updateGtaoMaterial({ radius: 0.55, distanceExponent: 1.2, thickness: 1.0, scale: 1.0, samples: hi ? 16 : 8 });
       ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: hi ? 6 : 4, rings: 2, samples: hi ? 16 : 8 });
-      c.addPass(ao);
+      c.addPass(atScale(ao, q.budget.aoRes));
     }
     if (q.bloom === 'on') {
       // High threshold: only the HDR clear effects and hot highlights bloom.
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.6, 0.45, 0.95));
+      c.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.6, 0.45, 0.95), q.budget.bloomRes));
     }
     c.addPass(new OutputPass());
     if (q.grade === 'on') c.addPass(new ShaderPass(GradeShader));
@@ -770,7 +830,7 @@ function spawnFlash(cellIdxs) {
   }
   if (motionOff()) return;
   // Wood chips burst up and fall back under gravity (count by particle tier).
-  const max = Math.min(cellIdxs.length * 2, PARTICLE_COUNT[q.particles]);
+  const max = Math.min(cellIdxs.length * 2, chipCap(q));
   for (let i = 0; i < max; i++) {
     let m = flashPool.find(f => !f.visible);
     if (!m) {
@@ -854,7 +914,8 @@ export function frame(nowMs) {
     clock += dt;
     const p = motes.geometry.attributes.position;
     const base = motes.userData.base, sd = motes.userData.seed;
-    for (let i = 0; i < sd.length; i++) {
+    const n = Math.min(sd.length, q.budget.motes);
+    for (let i = 0; i < n; i++) {
       const ph = sd[i];
       p.array[i * 3] = base[i * 3] + Math.sin(clock * 0.21 + ph) * 0.4;
       p.array[i * 3 + 1] = base[i * 3 + 1] + Math.sin(clock * 0.33 + ph * 1.7) * 0.25;
@@ -881,7 +942,7 @@ export function frame(nowMs) {
   }
   if (lastSize) {
     const key = needsPost() && !postFailed
-      ? [q.ao, q.bloom, q.grade, q.antialias, lastSize.w, lastSize.h, pixelRatio].join('|') : 'none';
+      ? [q.ao, q.bloom, q.grade, q.antialias, q.budget.bloomRes, q.budget.aoRes, lastSize.w, lastSize.h, pixelRatio].join('|') : 'none';
     if (key !== postKey) { postKey = key; buildPost(lastSize.w, lastSize.h); }
   }
   if (composer) {

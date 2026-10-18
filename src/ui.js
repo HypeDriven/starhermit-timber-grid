@@ -7,7 +7,7 @@ export const I18N = STRINGS;
 
 // Graphics panel strings, in the same locales as the game (it follows the game language).
 const GFX_EN = {
-  graphics: 'Graphics', gfxQuality: 'Quality', gfxAuto: 'Auto (detected: {tier})', gfxFromPreset: 'From preset ({tier})',
+  gfxLevel: 'Level {n}', graphics: 'Graphics', gfxQuality: 'Quality', gfxAuto: 'Auto (detected: {tier})', gfxFromPreset: 'From preset ({tier})',
   gfxScale: 'Render scale', gfxAdaptive: 'Adaptive resolution', gfxShowFps: 'Show frame rate',
   gfxPostFailed: 'Post-processing is unavailable on this device; the game renders without it.',
   cat_shadows: 'Shadows', cat_ao: 'Ambient occlusion', cat_bloom: 'Bloom', cat_grade: 'Color grade',
@@ -20,7 +20,7 @@ const GFX_EN = {
   bloom: 'bloom', noAA: 'no anti-aliasing', particlesN: '{n} particles',
 };
 const GFX_ES = {
-  graphics: 'Gráficos', gfxQuality: 'Calidad', gfxAuto: 'Automática (detectada: {tier})', gfxFromPreset: 'Según el preajuste ({tier})',
+  gfxLevel: 'Nivel {n}', graphics: 'Gráficos', gfxQuality: 'Calidad', gfxAuto: 'Automática (detectada: {tier})', gfxFromPreset: 'Según el preajuste ({tier})',
   gfxScale: 'Escala de renderizado', gfxAdaptive: 'Resolución adaptable', gfxShowFps: 'Mostrar fotogramas por segundo',
   gfxPostFailed: 'El posprocesado no está disponible en este dispositivo; el juego se muestra sin él.',
   cat_shadows: 'Sombras', cat_ao: 'Oclusión ambiental', cat_bloom: 'Resplandor', cat_grade: 'Corrección de color',
@@ -33,7 +33,7 @@ const GFX_ES = {
   bloom: 'resplandor', noAA: 'sin suavizado', particlesN: '{n} partículas',
 };
 const GFX_FR = {
-  graphics: 'Graphismes', gfxQuality: 'Qualité', gfxAuto: 'Auto (détectée : {tier})', gfxFromPreset: 'Selon le préréglage ({tier})',
+  gfxLevel: 'Niveau {n}', graphics: 'Graphismes', gfxQuality: 'Qualité', gfxAuto: 'Auto (détectée : {tier})', gfxFromPreset: 'Selon le préréglage ({tier})',
   gfxScale: 'Échelle de rendu', gfxAdaptive: 'Résolution adaptative', gfxShowFps: 'Afficher les images par seconde',
   gfxPostFailed: 'Le post-traitement n’est pas disponible sur cet appareil ; le jeu s’affiche sans.',
   cat_shadows: 'Ombres', cat_ao: 'Occlusion ambiante', cat_bloom: 'Halo lumineux', cat_grade: 'Étalonnage des couleurs',
@@ -51,7 +51,7 @@ export const GFX_I18N = {
   'es-419': { ...GFX_ES, gfxScale: 'Escala de renderización', gfxShowFps: 'Mostrar cuadros por segundo', tier_plain: 'Simple' },
   'es-ES': GFX_ES,
   'de-DE': {
-    graphics: 'Grafik', gfxQuality: 'Qualität', gfxAuto: 'Automatisch (erkannt: {tier})', gfxFromPreset: 'Laut Voreinstellung ({tier})',
+    gfxLevel: 'Stufe {n}', graphics: 'Grafik', gfxQuality: 'Qualität', gfxAuto: 'Automatisch (erkannt: {tier})', gfxFromPreset: 'Laut Voreinstellung ({tier})',
     gfxScale: 'Renderskalierung', gfxAdaptive: 'Adaptive Auflösung', gfxShowFps: 'Bildrate anzeigen',
     gfxPostFailed: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; das Spiel wird ohne sie dargestellt.',
     cat_shadows: 'Schatten', cat_ao: 'Umgebungsverdeckung', cat_bloom: 'Leuchteffekt', cat_grade: 'Farbkorrektur',
@@ -66,7 +66,7 @@ export const GFX_I18N = {
   'fr-FR': GFX_FR,
   'fr-CA': { ...GFX_FR, gfxShowFps: 'Afficher la fréquence d’images', gfxScale: 'Échelle du rendu' },
   'pt-BR': {
-    graphics: 'Gráficos', gfxQuality: 'Qualidade', gfxAuto: 'Automática (detectada: {tier})', gfxFromPreset: 'Da predefinição ({tier})',
+    gfxLevel: 'Nível {n}', graphics: 'Gráficos', gfxQuality: 'Qualidade', gfxAuto: 'Automática (detectada: {tier})', gfxFromPreset: 'Da predefinição ({tier})',
     gfxScale: 'Escala de renderização', gfxAdaptive: 'Resolução adaptável', gfxShowFps: 'Mostrar taxa de quadros',
     gfxPostFailed: 'O pós-processamento não está disponível neste dispositivo; o jogo é exibido sem ele.',
     cat_shadows: 'Sombras', cat_ao: 'Oclusão de ambiente', cat_bloom: 'Brilho', cat_grade: 'Correção de cor',
@@ -79,7 +79,7 @@ export const GFX_I18N = {
     bloom: 'brilho', noAA: 'sem suavização', particlesN: '{n} partículas',
   },
   'it-IT': {
-    graphics: 'Grafica', gfxQuality: 'Qualità', gfxAuto: 'Automatica (rilevata: {tier})', gfxFromPreset: 'Da preimpostazione ({tier})',
+    gfxLevel: 'Livello {n}', graphics: 'Grafica', gfxQuality: 'Qualità', gfxAuto: 'Automatica (rilevata: {tier})', gfxFromPreset: 'Da preimpostazione ({tier})',
     gfxScale: 'Scala di rendering', gfxAdaptive: 'Risoluzione adattiva', gfxShowFps: 'Mostra frequenza fotogrammi',
     gfxPostFailed: 'La post-elaborazione non è disponibile su questo dispositivo; il gioco viene mostrato senza.',
     cat_shadows: 'Ombre', cat_ao: 'Occlusione ambientale', cat_bloom: 'Bagliore', cat_grade: 'Correzione colore',
@@ -92,7 +92,7 @@ export const GFX_I18N = {
     bloom: 'bagliore', noAA: 'nessun antialiasing', particlesN: '{n} particelle',
   },
   zh: {
-    graphics: '图形', gfxQuality: '画质', gfxAuto: '自动（检测为：{tier}）', gfxFromPreset: '跟随预设（{tier}）',
+    gfxLevel: '等级 {n}', graphics: '图形', gfxQuality: '画质', gfxAuto: '自动（检测为：{tier}）', gfxFromPreset: '跟随预设（{tier}）',
     gfxScale: '渲染比例', gfxAdaptive: '自适应分辨率', gfxShowFps: '显示帧率',
     gfxPostFailed: '此设备不支持后期处理；游戏将在无后期处理的情况下渲染。',
     cat_shadows: '阴影', cat_ao: '环境光遮蔽', cat_bloom: '泛光', cat_grade: '调色',

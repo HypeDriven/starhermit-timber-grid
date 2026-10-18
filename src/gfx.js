@@ -1,5 +1,5 @@
-// Timber Grid — graphics quality model: presets, per-category overrides, GPU
-// detection and a cost summary. Pure (no three.js) so the settings panel, the
+// Timber Grid — graphics quality model: presets, per-category overrides, StarHermit
+// hardware-level detection, per-preset budgets and a cost summary. Pure (no three.js) so the settings panel, the
 // renderer and the unit tests agree on what a setting means.
 
 export const PRESETS = ['low', 'balanced', 'high', 'ultra'];
@@ -28,20 +28,68 @@ const TABLE = {
 };
 
 export const SHADOW_MAP = { off: 0, low: 1024, medium: 2048, high: 4096 };
-export const PARTICLE_COUNT = { off: 0, low: 24, high: 64 };
 
-/**
- * Best preset for this GPU, from the unmasked renderer string when exposed.
- * Software renderers get Low; discrete GPUs / Apple M get High; else Balanced.
- * Touch/mobile devices are capped at Balanced.
+// Auto picks the preset from the StarHermit hardware level (0 = Galaxy S20 / Intel UHD or weaker, 20 =
+// RTX 5090; src/gpu-level.js → window.StarHermitGpu, a classic script loaded before the game): Low from
+// 0, Balanced from 4, High from 10, Ultra from 17. Phones, tablets and ≤ 4 GB machines are capped at 9.
+export const LEVELS = { low: 0, balanced: 4, high: 10, ultra: 17 };
+const gpuApi = () => globalThis.StarHermitGpu;
+
+/** Hardware level 0–20 for an unmasked renderer string plus StarHermitGpu.detectSystem() facts. */
+export function detectLevel(gpu, system) {
+  const G = gpuApi();
+  const sys = { webgl: true, webgl2: true, ...(system || {}), gpu: String(gpu || '') };
+  if (!gpu) sys.webgl = false; // no renderer string: no usable WebGL
+  return G ? G.detectLevel(sys) : (gpu ? LEVELS.balanced : 0);
+}
+
+/** The preset Auto starts from for a hardware level. */
+export function presetForLevel(level) {
+  const G = gpuApi();
+  return G ? G.presetForLevel(level, LEVELS) : PRESETS.filter((p) => LEVELS[p] <= level).pop() || 'low';
+}
+
+/** Best preset for this GPU (the hardware level already caps phones/tablets at Balanced). */
+export function detectPreset(gpu, system) {
+  return presetForLevel(detectLevel(gpu, system));
+}
+
+/*
+ * Per-preset asset and effect budget. Each preset holds 60 FPS on the weakest GPU Auto gives it (Low →
+ * level 0, Balanced → 4, High → 10, Ultra → 17; measured with tests/gfx-bench.mjs). Board, pieces, hit
+ * areas and rules are identical on every preset — only visuals change.
+ *   material  wood shading: lambert (Low) / standard (Balanced) / physical lacquered pieces (High, Ultra)
+ *   texture   procedural wood-grain texture size in px (Detail on)
+ *   bump      wood-grain bump mapping (Detail on)
+ *   cellSeg / pieceSeg  rounded-corner segments of the board cells and placed blocks (Detail on)
+ *   chips     wood chips per clear at Particles "high" (low: 40 %), scaled with the level
+ *   motes     sawdust motes in the lamp light (Ambient animated), scaled with the level
+ *   bloomRes / aoRes  bloom and GTAO resolution as a fraction of the frame
  */
-export function detectPreset(gpu, mobile = false) {
-  const g = String(gpu || '').toLowerCase();
-  let p = 'balanced';
-  if (/swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/.test(g)) p = 'low';
-  else if (/nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|amd radeon(?!.*graphics)|apple m\d/.test(g)) p = 'high';
-  if (mobile && PRESETS.indexOf(p) > PRESETS.indexOf('balanced')) p = 'balanced';
-  return p;
+export const BUDGETS = {
+  low: { material: 'lambert', texture: 128, bump: false, cellSeg: 1, pieceSeg: 1, chips: 16, motes: 30, bloomRes: 0.5, aoRes: 0.5 },
+  balanced: { material: 'standard', texture: 256, bump: false, cellSeg: 2, pieceSeg: 2, chips: 32, motes: 50, bloomRes: 0.5, aoRes: 0.5 },
+  high: { material: 'physical', texture: 512, bump: true, cellSeg: 2, pieceSeg: 3, chips: 64, motes: 90, bloomRes: 0.5, aoRes: 0.5 },
+  ultra: { material: 'physical', texture: 1024, bump: true, cellSeg: 3, pieceSeg: 4, chips: 96, motes: 150, bloomRes: 1, aoRes: 1 },
+};
+export const CHIP_MAX = 192;
+export const MOTE_MAX = 300;
+const PARTICLE_SHARE = { off: 0, low: 0.4, high: 1 };
+
+/** A preset's concrete budget for a hardware level (chip and mote counts scale ≤ 2× within the preset). */
+export function budgetFor(preset, level) {
+  const b = { ...(BUDGETS[preset] || BUDGETS.balanced) };
+  const G = gpuApi(), floor = LEVELS[preset] || 0;
+  const lv = Math.max(Number.isFinite(level) ? level : floor, floor);
+  const k = G ? Math.min(2, G.scaleBudget(1, lv, floor)) : 1;
+  b.chips = Math.min(CHIP_MAX, Math.round(b.chips * k));
+  b.motes = Math.min(MOTE_MAX, Math.round(b.motes * k));
+  return b;
+}
+
+/** Wood chips per clear for a resolved setting (Particles tier share of the preset's chip budget). */
+export function chipCap(r) {
+  return Math.round(r.budget.chips * (PARTICLE_SHARE[r.particles] ?? 0));
 }
 
 /** Map the legacy single `quality` setting (auto|high|medium|low) to saved graphics. */
@@ -55,7 +103,7 @@ export function fromLegacyQuality(q) {
  * `saved`: { preset: 'auto'|preset, render_scale, adaptive, show_fps, <category>: tier }.
  * A category key missing or holding an unknown value follows the preset.
  */
-export function resolve(saved, detected) {
+export function resolve(saved, detected, level) {
   const s = saved || {};
   const auto = !PRESETS.includes(s.preset);
   const preset = auto ? (PRESETS.includes(detected) ? detected : 'balanced') : s.preset;
@@ -65,6 +113,8 @@ export function resolve(saved, detected) {
   for (const [cat, tiers] of Object.entries(CATEGORIES)) {
     out[cat] = tiers.includes(s[cat]) ? s[cat] : row[cat];
   }
+  out.level = Number.isFinite(level) ? level : LEVELS[preset];
+  out.budget = budgetFor(preset, out.level);
   out.adaptive = s.adaptive !== false;
   out.showFps = !!s.show_fps;
   // The composer runs only when an effect needs it; otherwise the canvas renders directly.
@@ -105,7 +155,7 @@ export function describe(r, pixels, word) {
     r.ao === 'off' ? null : r.ao === 'high' ? w('aoHigh') : w('ao'),
     r.bloom === 'on' ? w('bloom') : null,
     r.antialias === 'off' ? w('noAA') : r.antialias.toUpperCase(),
-    r.particles === 'off' ? null : w('particlesN', { n: PARTICLE_COUNT[r.particles] }),
+    r.particles === 'off' ? null : w('particlesN', { n: chipCap(r) }),
     pixels ? `${pixels[0]}×${pixels[1]} px` : null,
   ];
   return parts.filter(Boolean).join(' · ');

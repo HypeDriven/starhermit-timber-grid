@@ -1104,7 +1104,7 @@ function showGraphics(onBack) {
     adaptive.checked = g.adaptive !== false;
     showFps.checked = !!g.show_fps;
     const fpsText = info.fps ? ` · ${info.fps} fps` : '';
-    summary.textContent = `${info.gpu} · ${info.summary}${fpsText}`;
+    summary.textContent = `${info.gpu} · ${tg('gfxLevel', { n: info.level })} · ${info.summary}${fpsText}`;
     note.hidden = !info.postFailed;
   }
 
@@ -1126,7 +1126,7 @@ function showGraphics(onBack) {
   const timer = setInterval(() => {
     if (!document.body.contains(panel)) { clearInterval(timer); return; }
     const info = render.graphicsInfo(k => tg(k));
-    summary.textContent = `${info.gpu} · ${info.summary}${info.fps ? ` · ${info.fps} fps` : ''}`;
+    summary.textContent = `${info.gpu} · ${tg('gfxLevel', { n: info.level })} · ${info.summary}${info.fps ? ` · ${info.fps} fps` : ''}`;
     note.hidden = !info.postFailed;
   }, 700);
 }
