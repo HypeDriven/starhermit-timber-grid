@@ -12,9 +12,7 @@
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "verbatimModuleSyntax": true,
-    // skipLibCheck: the 1.13.1 starhermit.d.ts names AntialiasMode in starhermit:engine without importing it (fixed in engine 1.13.2)
-    "skipLibCheck": true
+    "verbatimModuleSyntax": true
   },
   "files": [".starhermit/starhermit.d.ts", "native/main.ts"]
 }
