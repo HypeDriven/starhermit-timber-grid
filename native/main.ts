@@ -6,7 +6,7 @@
 // are the shared src/rules.js, src/content.js and src/session.js. Screens
 // are starhermit:ui (screens.ts), the bench starhermit:scene (render.ts).
 import { frame, onRender, onResume, onStart, onSuspend, onUpdate, preferences, onPreferencesChange } from "starhermit:engine";
-import { onAction, onKey, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
+import { onAction, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded } from "starhermit:platform";
 import { saves } from "starhermit:storage";
@@ -497,7 +497,6 @@ onAction((e) => {
     resumeGame();
   }
 });
-onKey(() => { /* keys arrive as actions; the UI takes its own */ });
 
 function boardPointer(x: number, y: number, press: boolean): void {
   if (app.screen !== "active") return;

@@ -128,7 +128,12 @@ export function drawScreens(): void {
     // after it), packed into lines by the items' measured widths.
     const items: { w: number; build: () => void; brand?: boolean }[] = [];
     const chip = (text: string): void => {
-      items.push({ w: ui.measureText(text, { style: "hud-chip" }).width / L.sc + 19.2 /* the chip's padding */, build: () => { ui.style("hud-chip").label(text); } });
+      const w = ui.measureText(text, { style: "hud-chip" }).width / L.sc + 19.2; // the chip's padding
+      const max = L.lw - 19.2;
+      // A label keeps one line: a chip wider than the bar wraps as a paragraph (the browser's flex-wrap).
+      items.push(w <= max
+        ? { w, build: () => { ui.style("hud-chip").label(text); } }
+        : { w: max, build: () => { ui.style("hud-chip").paragraph(text, max - 19.2); } });
     };
     if (!L.shortLand) {
       const brand = t("title");
