@@ -31,7 +31,7 @@
     "sfx/place-thunk.opus": {"sha256": "794db1327918ade0778bfbe3e21019fcc2af0eb4f217d3da009a8f4ee401a03a", "size": 12247},
     "sfx/undo-swipe.opus": {"sha256": "d60eaf2744df879b097d8ba7455e6c5dbfac3523f5989fa492d9925575efde25", "size": 12343},
     "sfx/win-fanfare.opus": {"sha256": "dc0ee894790fdb01c744b7874ba44d23959fe9bec3e5250259deeaa07c823cb3", "size": 38208},
-    "spec.md": {"sha256": "22d40d805aa2b72257b0834b0e437bcd66c870c7ffd86ad131637744e56ef7f2", "size": 28042},
+    "spec.md": {"sha256": "0041fd3748a5647ce0712be02465c417644c735c8668d062b2b46268e10fe91d", "size": 28042},
     "src/content.js": {"sha256": "f73e69c1ecaedc1449b93e363d394be7af213bc08eec126725463fc45f6d690b", "size": 5088},
     "src/progress.js": {"sha256": "a785a306846ed034d2aeda2f33fb67c761570bd20ca4f218956e819da9ba28a4", "size": 5069},
     "src/rules.js": {"sha256": "5ef794c27c404488a53b801a1932f2e6d34f9f6e9cf5a16c83af52acae5f3977", "size": 11441},

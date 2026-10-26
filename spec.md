@@ -4,7 +4,7 @@
 **Game index:** 7  
 **Genre:** Spatial puzzle  
 **Players:** 1 player; optional asynchronous score comparison  
-**Targets:** the StarHermit engine 1.14.0 (host API 1.15): natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait  
+**Targets:** the StarHermit engine 1.14.0 (host API 1.16): natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait  
 **Rendering direction:** a 3D bench on `starhermit:scene` (ported from three.js) under an immediate-mode `starhermit:ui` interface
 
 ## 1. Product vision
