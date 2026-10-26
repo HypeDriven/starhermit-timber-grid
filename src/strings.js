@@ -62,6 +62,7 @@ const enUS = {
   achStreakWeek: 'Steady Hand', achStreakWeekDesc: 'Play on 7 different days.',
   achJourney20: 'Halfway There', achJourney20Desc: 'Complete journey stage 20.',
   achMarathon: 'Marathon Bench', achMarathonDesc: 'Score 1000 points in one round.',
+  runtimeOptions: 'Sound, graphics, language and controls',
 };
 
 const enGB = {
@@ -127,6 +128,7 @@ const es419 = {
   achStreakWeek: 'Pulso firme', achStreakWeekDesc: 'Juega en 7 días distintos.',
   achJourney20: 'A mitad de camino', achJourney20Desc: 'Completa la etapa 20 de la travesía.',
   achMarathon: 'Banco maratoniano', achMarathonDesc: 'Consigue 1000 puntos en una ronda.',
+  runtimeOptions: 'Sonido, gráficos, idioma y controles',
 };
 
 const esES = {
@@ -194,6 +196,7 @@ const deDE = {
   achStreakWeek: 'Ruhige Hand', achStreakWeekDesc: 'Spiele an 7 verschiedenen Tagen.',
   achJourney20: 'Halbzeit', achJourney20Desc: 'Schließe Reise-Etappe 20 ab.',
   achMarathon: 'Marathon-Werkbank', achMarathonDesc: 'Erziele 1000 Punkte in einer Runde.',
+  runtimeOptions: 'Ton, Grafik, Sprache und Steuerung',
 };
 
 const frFR = {
@@ -254,6 +257,7 @@ const frFR = {
   achStreakWeek: 'Main sûre', achStreakWeekDesc: 'Jouez 7 jours différents.',
   achJourney20: 'À mi-chemin', achJourney20Desc: 'Terminez l’étape 20 du parcours.',
   achMarathon: 'Établi marathon', achMarathonDesc: 'Marquez 1000 points en une manche.',
+  runtimeOptions: 'Son, graphismes, langue et commandes',
 };
 
 const frCA = {
@@ -321,6 +325,7 @@ const ptBR = {
   achStreakWeek: 'Mão firme', achStreakWeekDesc: 'Jogue em 7 dias diferentes.',
   achJourney20: 'Meio caminho', achJourney20Desc: 'Conclua a fase 20 da jornada.',
   achMarathon: 'Bancada maratona', achMarathonDesc: 'Faça 1000 pontos em uma rodada.',
+  runtimeOptions: 'Som, gráficos, idioma e controles',
 };
 
 const itIT = {
@@ -381,6 +386,7 @@ const itIT = {
   achStreakWeek: 'Mano ferma', achStreakWeekDesc: 'Gioca in 7 giorni diversi.',
   achJourney20: 'A metà strada', achJourney20Desc: 'Completa il livello 20 del viaggio.',
   achMarathon: 'Banco maratona', achMarathonDesc: 'Fai 1000 punti in un round.',
+  runtimeOptions: 'Audio, grafica, lingua e comandi',
 };
 
 const zh = {
@@ -443,6 +449,7 @@ const zh = {
   achStreakWeek: '稳定之手', achStreakWeekDesc: '在 7 个不同的日子游玩。',
   achJourney20: '半程', achJourney20Desc: '完成旅程第 20 关。',
   achMarathon: '马拉松工作台', achMarathonDesc: '单局获得 1000 分。',
+  runtimeOptions: '声音、图形、语言和控制',
 };
 
 export const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];

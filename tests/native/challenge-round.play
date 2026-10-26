@@ -1,0 +1,46 @@
+# A ranked Challenge (Tight Bench: 150 points in 10 placements) played to its
+# results with the keyboard: H (hint) puts the target on a legal anchor, Enter
+# places; Escape pauses and the pause card resumes.
+until 300 Play
+click Play
+until 60 Challenge
+click Challenge
+until 60 Tight Bench — Reach 150 points in only 10 placements.
+click Tight Bench — Reach 150 points in only 10 placements.
+until 60 Moves left: 10
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key Escape 2
+until 60 Resume
+save pause
+click Resume
+until 60 Moves left: 8
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+key KeyH 2
+key Enter 2
+until 60 Moves left: 1
+key KeyH 2
+key Enter 2
+until 120 Score breakdown
+expect Move limit reached.
+save results
+click Score Chase
+until 60 Achievements
+save scores
+click Back
+until 60 Back to Title
+click Back to Title
+until 60 Daily Challenge

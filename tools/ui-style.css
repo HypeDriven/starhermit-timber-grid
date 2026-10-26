@@ -1,0 +1,76 @@
+/* Timber Grid — the browser client's style sheet, kept for the engine port.
+ * `npm run css` converts it with `starhermit css` into assets/ui-style.json,
+ * which native/style.ts registers (ui.setTokens / ui.setStyles). The browser
+ * build's ids became classes (the converter maps classes, not ids); its media
+ * queries, safe-area insets, ui-scale zoom, high-contrast/large-text body
+ * classes, graphics panel, fps meter and no-WebGL board mirror are gone: the
+ * runtime gives interface size, text size, high contrast, reduced motion and
+ * graphics, and native/screens.ts picks the compact layouts by window size.
+ * rgba() stands for the original color-mix() over --panel / --accent. */
+* { box-sizing: border-box; }
+:root {
+  --bg: #2b2119; --panel: #3a2d22; --panel2: #463727; --text: #f5efe6; --accent: #e0a458;
+  --chip: #54402e; --focus: #ffd27a;
+}
+
+.statusbar { padding: 0.4rem 0.6rem; background: var(--panel); min-height: 2.6rem; }
+.brand { font-size: 1.05rem; letter-spacing: 0.04em; font-weight: 700; }
+.hud-chip { background: var(--chip); border-radius: 0.5rem; padding: 0.25rem 0.6rem; font-size: 0.9rem; min-height: 1.8rem; }
+
+.rail { padding: 0.6rem; }
+.rail-block { background: rgba(58, 45, 34, 0.88); border-radius: 0.6rem; padding: 0.55rem 0.7rem; }
+.rail-title { margin: 0 0 0.25rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.rail-text { margin: 0; font-size: 0.9rem; }
+.tutorial-card { background: var(--panel2); border-left: 3px solid var(--accent); border-radius: 0.4rem; padding: 0.6rem 0.7rem; }
+.tutorial-text { margin: 0.3rem 0 0; font-size: 0.9rem; }
+.tutorial-toggle { margin-top: 0.4rem; min-height: 36px; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+
+.chip-btn {
+  background: var(--chip); border: 1px solid transparent; border-radius: 0.5rem;
+  min-height: 44px; min-width: 44px; padding: 0.35rem 0.8rem; color: var(--text);
+}
+.chip-btn:hover { border-color: var(--accent); }
+.chip-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.tray { padding: 0.6rem; background: var(--panel); min-height: 5.2rem; }
+.tray-piece {
+  background: var(--chip); border: 2px solid transparent; border-radius: 0.6rem;
+  padding: 0.5rem; min-width: 64px; min-height: 64px;
+}
+.tray-piece:hover { border-color: rgba(224, 164, 88, 0.6); }
+.tray-piece.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224, 164, 88, 0.5); }
+.tray-piece:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.tray-compact { padding: 0.3rem 0.6rem; min-height: 3.6rem; }
+.tray-piece-compact { min-height: 48px; min-width: 48px; padding: 0.3rem; }
+
+.overlay-veil { background: rgba(10, 7, 5, 0.6); padding: 1rem; }
+.panel {
+  background: var(--panel); border-radius: 0.9rem; padding: 1.4rem 1.6rem;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+}
+.panel-title { margin: 0 0 0.3rem; font-size: 1.5rem; font-weight: 700; }
+.section-title { margin: 0.5rem 0 0; color: var(--accent); font-size: 1.17rem; font-weight: 700; }
+.tagline { margin: 0 0 0.6rem; opacity: 0.85; }
+.menu-btn {
+  background: var(--panel2); border: 1px solid transparent; border-radius: 0.6rem;
+  padding: 0.7rem 1rem; text-align: left; min-height: 44px; font-size: 1rem; color: var(--text);
+}
+.menu-btn:hover { border-color: var(--accent); }
+.menu-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.menu-btn.primary { background: var(--accent); color: #241a10; font-weight: 600; }
+.big-score { font-size: 1.6rem; font-weight: 700; margin: 0.2rem 0; }
+.reason { opacity: 0.85; margin: 0; }
+.ranked-line { font-size: 0.85rem; color: var(--accent); margin: 0; }
+.score-row { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.cell { padding: 0.25rem 0.5rem; }
+.cell-strong { padding: 0.25rem 0.5rem; font-weight: 700; }
+.list-item { padding: 0 0 0 1.2rem; }
+.help-card { background: var(--panel2); border-radius: 0.6rem; padding: 0.6rem 0.8rem; }
+.help-text { margin: 0.25rem 0 0; font-size: 0.92rem; }
+.setting-row { min-height: 44px; }
+.setting-row select { background: var(--panel2); color: var(--text); border-radius: 0.4rem; padding: 0.3rem 0.5rem; min-height: 40px; }
+
+.toast {
+  padding: 0.6rem 1.1rem; border-radius: 0.8rem; text-align: center;
+  background: var(--panel); border: 1px solid var(--accent); color: var(--text);
+}

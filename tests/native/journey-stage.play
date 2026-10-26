@@ -1,0 +1,48 @@
+# The title's Settings and Help cards, then Journey stage 1 played to its
+# goal in seven placements with the keyboard (H puts the target on a legal anchor, Enter places).
+until 300 Play
+click Settings
+until 60 Hold to drag pieces
+save settings
+click Left-handed controls
+click Back
+until 60 Help
+click Help
+until 60 How to play
+save help
+click Back
+until 60 Journey — Stage 1
+click Journey — Stage 1
+until 60 Start
+save setup
+click Start
+until 60 Moves left: 11
+frames 10
+save journey
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+key KeyH 2
+key Enter 2
+frames 4
+until 120 Score breakdown
+expect Stage Clear!
+expect Journey: Stage 2 / 40
+save journey-results
+click Back to Title
+until 60 Daily Challenge

@@ -4,6 +4,9 @@ import * as rules from './rules.js';
 
 let cmdCounter = 0;
 
+/**
+ * @param {{ seed: number, mode: string, opts?: { moveLimit?: number | null, goalScore?: number | null, allowUndo?: boolean }, meta?: Record<string, any> }} cfg
+ */
 export function createSession({ seed, mode, opts = {}, meta = {} }) {
   const state = rules.createState(seed, opts);
   return {

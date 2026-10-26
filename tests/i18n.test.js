@@ -1,4 +1,4 @@
-// i18n.test.js — every string key used in src/*.js exists in all nine
+// i18n.test.js — every string key the native client (native/*.ts) uses exists in all nine
 // StarHermit locales (and zh), with the same {placeholders} as US English;
 // content (themes, challenges, practice levels, tutorial steps, achievements)
 // is named in every locale.
@@ -9,11 +9,13 @@ import { STRINGS, LOCALES } from '../src/strings.js';
 import * as content from '../src/content.js';
 
 const ALL = [...LOCALES, 'zh'];
-const code = readdirSync(new URL('../src/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'strings.js')
-  .map((f) => readFileSync(new URL('../src/' + f, import.meta.url), 'utf8')).join('\n');
+const code = readdirSync(new URL('../native/', import.meta.url)).filter((f) => f.endsWith('.ts'))
+  .map((f) => readFileSync(new URL('../native/' + f, import.meta.url), 'utf8')).join('\n');
 const used = new Set();
-for (const m of code.matchAll(/\bt\('([A-Za-z0-9]+)'(?!\s*\+)/g)) used.add(m[1]);
-for (const m of code.matchAll(/'((?:sync|pal|cell|ach)[A-Z][A-Za-z0-9]*)'/g)) used.add(m[1]);
+for (const m of code.matchAll(/\bt\("([A-Za-z0-9]+)"(?!\s*\+)/g)) used.add(m[1]);
+for (const m of code.matchAll(/"((?:sync|pal|cell|ach)[A-Z][A-Za-z0-9]*)"/g)) used.add(m[1]);
+// keys passed through a table or variable: t(k) over the breakdown rows, the settings toggles
+for (const k of ['placed', 'cleared', 'multi', 'combo', 'leftHanded', 'holdToDrag', 'haptics']) used.add(k);
 const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
 const camel = (id) => id.split('-').map(cap).join('');
 for (const th of content.THEMES) used.add('theme' + cap(th.id));
@@ -25,7 +27,7 @@ for (const k of ['easy', 'medium', 'hard', 'journey', 'daily', 'challenge', 'pra
 const vars = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
 
 test('ships the nine StarHermit locales plus zh', () => assert.deepEqual(Object.keys(STRINGS).sort(), [...ALL].sort()));
-test('found the keys in code', () => assert.ok(used.size > 120, String(used.size)));
+test('found the keys in code', () => assert.ok(used.size > 100, String(used.size)));
 for (const loc of ALL) {
   test(`${loc}: every used key, matching placeholders`, () => {
     assert.deepEqual([...used].filter((k) => typeof STRINGS[loc][k] !== 'string'), []);
@@ -44,4 +46,11 @@ test('non-English locales are translated', () => {
     const same = [...used].filter((k) => STRINGS[loc][k] === STRINGS['en-US'][k] && !/\{row\},\{col\}/.test(STRINGS['en-US'][k]));
     assert.ok(same.length < 12, `${loc}: ${same.join(', ')}`);
   }
+});
+test('platform-control strings (ts) exist in every locale', async () => {
+  const { SH_STRINGS } = await import('../src/sh-i18n.js');
+  const keys = [...new Set([...code.matchAll(/\bts\("([A-Za-z0-9]+)"/g)].map((m) => m[1]).concat(['lbPosting', 'lbRank', 'lbPosted', 'lbNotPosted']))];
+  assert.ok(keys.length >= 6, keys.join(','));
+  for (const loc of LOCALES) assert.deepEqual(keys.filter((k) => typeof SH_STRINGS[loc][k] !== 'string'), [], loc);
+  assert.deepEqual(keys.filter((k) => typeof STRINGS.zh[k] !== 'string'), [], 'zh');
 });
