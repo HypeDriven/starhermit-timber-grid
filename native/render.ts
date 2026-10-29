@@ -5,24 +5,22 @@
 // snapshots and never mutates rules state.
 //
 // What changed from three.js, and why:
-// - RoundedBoxGeometry (an addon) is rounded.ts; RoomEnvironment +
-//   PMREMGenerator.fromScene (not available) is a latitude-longitude studio
-//   image prefiltered with fromEquirectangular.
+// - RoundedBoxGeometry (an addon) is rounded.ts.
 // - The EffectComposer chain (GTAO, UnrealBloom, the grade ShaderPass, SMAA /
 //   FXAA / MSAA) is renderer.ao / bloom / grade / antialias; the grade's GLSL
 //   is the built-in display-space grade with the same curve, tints and vignette.
 // - onBeforeCompile's per-instance grain offset is a WGSL vertex hook; the
 //   bump map is a normal map made from the same grain.
-// - Light intensities are three.js r170's divided by π (the engine's convention).
-// - The canvas-texture grain is a DataTexture, its linear values sRGB-encoded
-//   (engine images are sRGB, three's CanvasTexture took them as linear).
-// - Camera view offsets do not exist (the aspect is the window's): the camera
+// - Lights, shadows and the environment are the page's own values (minor 28).
+// - The canvas-texture grain is a DataTexture with the page's linear values
+//   (NoColorSpace, used as stored like three's CanvasTexture).
+// - Camera view offsets are not used (the aspect is set to the window's): the camera
 //   is moved and pulled back until the board fits the free part of the window.
 import {
   ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, Color,
-  DataTexture, DirectionalLight, FloatType, Fog, Group, HemisphereLight, InstancedMesh, Matrix4,
+  DataTexture, DirectionalLight, Fog, Group, HemisphereLight, InstancedMesh, Matrix4,
   Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial,
-  PMREMGenerator, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RGBAFormat,
+  PCFSoftShadowMap, PMREMGenerator, PerspectiveCamera, RoomEnvironment, PlaneGeometry, Points, PointsMaterial,
   Raycaster, RepeatWrapping, Vector2, Vector3, pointerToNdc, renderer, scene,
 } from "starhermit:scene";
 import type { Material, MaterialHooks, Texture } from "starhermit:scene";
@@ -86,14 +84,15 @@ function jitter(i: number): number {
 function motionOff(): boolean { return reducedMotion; }
 
 // --- lights and the bench ------------------------------------------------------
-const keyLight = new DirectionalLight(0xfff2e0, 2.4 / PI);
+const keyLight = new DirectionalLight(0xfff2e0, 2.4);
 keyLight.position.set(-6, 10, 4);
+Object.assign(keyLight.shadow.camera, { left: -7.6, right: 7.6, top: 7.6, bottom: -7.6, near: 2, far: 26 });
+keyLight.shadow.camera.updateProjectionMatrix();
 keyLight.shadow.bias = -0.0004;
-keyLight.shadow.radius = 2; // three.js PCFSoftShadowMap's soft edge
-keyLight.shadow.distance = 40;
-const fill = new DirectionalLight(0xcfd8ff, 0.55 / PI);
+keyLight.shadow.normalBias = 0.02;
+const fill = new DirectionalLight(0xcfd8ff, 0.55);
 fill.position.set(5, 6, -6);
-const hemi = new HemisphereLight(0xfff4e6, 0x3a2a1c, 0.55 / PI);
+const hemi = new HemisphereLight(0xfff4e6, 0x3a2a1c, 0.55);
 
 const cs = FRAMING.cellSize - FRAMING.cellGap;
 const plainBox = new BoxGeometry(cs, FRAMING.cellHeight, cs);
@@ -125,10 +124,8 @@ let floorTex: DataTexture | null = null;
 let grainNormal: DataTexture | null = null;
 let assetKey = "";
 let envTex: Texture | null = null;
-let envBuilding = false;
 
 // --- procedural wood -------------------------------------------------------------
-const toSrgb = (v: number): number => (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
 
 /** Grey-scale wood grain (linear values ~0.8–1.0): long wavy growth rings plus
  * fine pores, deterministic, authored at 256 px and sampled at `size`. */
@@ -156,7 +153,7 @@ function woodGrain(size: number): Float32Array {
 function grainTexture(g: Float32Array, size: number): DataTexture {
   const px = new Uint8Array(size * size * 4);
   for (let i = 0; i < g.length; i++) {
-    const b = Math.round(toSrgb(g[i]!) * 255);
+    const b = Math.round(g[i]! * 255);
     px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = b;
     px[i * 4 + 3] = 255;
   }
@@ -263,38 +260,15 @@ function buildAssets(): boolean {
   return true;
 }
 
-/** A neutral studio (three.js RoomEnvironment's role): a dim room with bright
- * soft boxes above and to the sides, as linear light, prefiltered once. */
+/** The page's neutral studio: three.js RoomEnvironment prefiltered at 0.04
+ * (r170: the room's light is 900, so the renderer is passed). */
 function buildEnvironment(): void {
-  if (envTex || envBuilding) return;
-  envBuilding = true;
-  const w = 128, h = 64;
-  const px = new Float32Array(w * h * 4);
-  const boxes: [number, number, number, number, number][] = [
-    // centre longitude, centre latitude (radians), half widths, intensity
-    [0, 1.25, 0.9, 0.18, 9], [Math.PI, 1.25, 0.9, 0.18, 7], [Math.PI / 2, 0.35, 0.35, 0.3, 6],
-    [-Math.PI / 2, 0.35, 0.35, 0.3, 5], [Math.PI * 0.25, 0.7, 0.25, 0.15, 4], [-Math.PI * 0.75, 0.7, 0.25, 0.15, 4],
-  ];
-  for (let row = 0; row < h; row++) {
-    const lat = (0.5 - (row + 0.5) / h) * Math.PI;
-    for (let c = 0; c < w; c++) {
-      const lon = ((c + 0.5) / w - 0.5) * 2 * Math.PI;
-      let v = lat > 0 ? 0.32 + 0.12 * Math.sin(lat) : 0.18 + 0.06 * Math.cos(lat);
-      for (const [bl, bt, hw, hh, k] of boxes) {
-        let dl = Math.abs(lon - bl);
-        if (dl > Math.PI) dl = 2 * Math.PI - dl;
-        if (dl < hw && Math.abs(lat - bt) < hh) v = k;
-      }
-      const o = (row * w + c) * 4;
-      px[o] = v; px[o + 1] = v * 0.98; px[o + 2] = v * 0.95; px[o + 3] = 1;
-    }
-  }
+  if (envTex) return;
   try {
-    envTex = new PMREMGenerator().fromEquirectangular(new DataTexture(px, w, h, RGBAFormat, FloatType)).texture;
+    envTex = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), 0.04).texture;
   } catch (e) {
     console.warn("environment:", e instanceof Error ? e.message : String(e));
   }
-  if (look) applyLook(look, true);
 }
 
 function build(): void {
@@ -378,6 +352,7 @@ function build(): void {
   scene.add(motes);
 
   renderer.camera = camera;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
 }
@@ -447,10 +422,10 @@ export function applyLook(next: Look, force = false): void {
     buildEnvironment();
     scene.environment = envTex;
     scene.environmentIntensity = LOOK.envIntensity;
-    hemi.intensity = 0.4 / PI;
+    hemi.intensity = 0.4;
   } else {
     scene.environment = null;
-    hemi.intensity = 0.55 / PI;
+    hemi.intensity = 0.55;
   }
   // Post effects, as the browser's composer chain per preset.
   renderer.ao = next.ao === "off" ? null : {
@@ -488,6 +463,9 @@ export function frameBoard(frame: Frame, aspect: number): void {
   if (key === fitKey) return;
   fitKey = key;
   fit = frame;
+  // Minor 20+: the camera keeps its own aspect, as three's does.
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
   const pitch = (FRAMING.cameraPitchDeg * PI) / 180;
   const half = (N * FRAMING.cellSize) / 2 + FRAMING.cellSize * 0.35;
   const pts: Vector3[] = [];
@@ -520,6 +498,7 @@ export function frameBoard(frame: Frame, aspect: number): void {
     oy -= ey * tanHalf * dist;
   }
   camera.far = Math.max(100, d * 4);
+  camera.updateProjectionMatrix();
   camBase = { pos: camera.position.clone(), target: target.clone() };
   if (d !== camDist) {
     camDist = d;

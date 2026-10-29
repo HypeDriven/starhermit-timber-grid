@@ -4,7 +4,7 @@
 **Game index:** 7  
 **Genre:** Spatial puzzle  
 **Players:** 1 player; optional asynchronous score comparison  
-**Targets:** the StarHermit engine 1.24.0 (host API 1.21): natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait  
+**Targets:** the StarHermit engine 1.26.1: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait  
 **Rendering direction:** a 3D bench on `starhermit:scene` (ported from three.js) under an immediate-mode `starhermit:ui` interface
 
 ## 1. Product vision
@@ -143,7 +143,7 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 
 ### Graphics
 
-**Graphics.** The bench is lit by a warm key light with soft PCF shadows (radius 2), a cool fill and a hemisphere bounce (three.js r170 intensities ÷ π, the engine's convention), with ACES filmic tone mapping (exposure 1.05); fog follows the fitted camera distance. Effects by preset: a neutral studio environment (a latitude-longitude image of soft boxes prefiltered with `PMREMGenerator.fromEquirectangular`, the role three.js's `RoomEnvironment` had) for reflections; a detailed tier with rounded cells and pieces (`native/rounded.ts`, three.js's RoundedBoxGeometry), procedural wood grain as colour and (High, Ultra) as a normal map, offset per instance by a WGSL vertex hook, alternating 3×3 region tones, clearcoat-lacquered pieces, a raised frame and a workshop floor; GTAO (`renderer.ao`); bloom limited to the HDR clear effects (threshold 0.95); the colour grade with vignette (`renderer.grade`, display space); FXAA/SMAA/MSAA; clear effects (a glowing additive plate over every cleared cell and a burst of wood chips); ambient motion (drifting sawdust motes and a ghost bob). The region dividers sit on the 3×3 boundaries.
+**Graphics.** The bench is lit by a warm key light with PCF soft shadows in the page's fitted shadow box, a cool fill and a hemisphere bounce (the three.js r170 page's own intensities), with ACES filmic tone mapping (exposure 1.05); fog follows the fitted camera distance. Effects by preset: three.js's `RoomEnvironment` prefiltered with `PMREMGenerator.fromScene` (environment intensity 0.3) for reflections; a detailed tier with rounded cells and pieces (`native/rounded.ts`, three.js's RoundedBoxGeometry), procedural wood grain as colour and (High, Ultra) as a normal map, offset per instance by a WGSL vertex hook, alternating 3×3 region tones, clearcoat-lacquered pieces, a raised frame and a workshop floor; GTAO (`renderer.ao`); bloom limited to the HDR clear effects (threshold 0.95); the colour grade with vignette (`renderer.grade`, display space); FXAA/SMAA/MSAA; clear effects (a glowing additive plate over every cleared cell and a burst of wood chips); ambient motion (drifting sawdust motes and a ghost bob). The region dividers sit on the 3×3 boundaries.
 
 **Graphics levels.** The runtime's Options › Graphics chooses Auto or one of ten levels (quantum … infinite) and owns render scale, pixel-ratio cap, adaptive steps, the frame-rate limit, shadow-map size and MSAA samples. The game reads `frame().quality` (Low, Balanced, High, Ultra) and `frame().levelIndex` each frame and applies the browser build's preset for that tier (`native/quality.ts`), its chip and mote budgets scaled within the tier by the level (1.64× a level, at most 2×). Board, pieces, hit areas and rules are identical on every level.
 
@@ -178,7 +178,7 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 
 ### Client modules
 
-The game is an engine script game: `starhermit.txt` names `engine.entry=native/main.ts`, `engine.version=1.24.0`, `engine.minor=14`, `engine.capabilities=platform,storage,clipboard`.
+The game is an engine script game: `starhermit.txt` names `engine.entry=native/main.ts`, `engine.version=1.26.1`, `engine.minor=28`, `engine.capabilities=platform,storage,clipboard`.
 
 - `src/rules.js`, `src/content.js`, `src/session.js`: pure deterministic rules (legality, scoring, seeded offers, replay hashes), versioned content (themes, 40 journey stages, challenges, tutorials, daily seed) and the command/undo/snapshot/replay-envelope layer — shared by the client, `server.js` and the Node tests, unchanged by the port.
 - `src/progress.js`: progression defaults, the two-device merge, and the migration of the browser build's cloud save and settings keys.
@@ -208,7 +208,7 @@ No module mutates rules state except through a validated session command; the re
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `npm run package` (`tools/package-web.mjs`, `starhermit package --web .`) writes the loader `index.html` (pinned to engine 1.24.0 on wiki.starhermit.com by hash) and `starhermit-files.json`; both are committed and regenerated after every change. `.starhermitignore` leaves `tests/`, `tools/` and `server.js` out of the package. The browser build (its `index.html`, the three.js vendor copy, `starhermit-sdk.js`, `sh-language.js`, `game-options.js`, `ui-scale.js`, `browser-guard.js`, `src/gpu-level.js` and its DOM modules) was removed; it can be recovered from commit ad21ccb. The browser build had no service worker.
+- `npm run package` (`tools/package-web.mjs`, `starhermit package --web .`) writes the loader `index.html` (pinned to engine 1.26.1 on wiki.starhermit.com by hash) and `starhermit-files.json`; both are committed and regenerated after every change. `.starhermitignore` leaves `tests/`, `tools/` and `server.js` out of the package. The browser build (its `index.html`, the three.js vendor copy, `starhermit-sdk.js`, `sh-language.js`, `game-options.js`, `ui-scale.js`, `browser-guard.js`, `src/gpu-level.js` and its DOM modules) was removed; it can be recovered from commit ad21ccb. The browser build had no service worker.
 - The runtime signs the player in from the launch (StarHermit client or the page's launch token); a guest sees "Sign in with StarHermit" on the title, which opens the runtime's Account dialog (`requestSignIn`). When the session ends, a toast says progress stays on this device.
 
 ### Identity, profile and preferences
