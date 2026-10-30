@@ -265,7 +265,7 @@ function buildAssets(): boolean {
 function buildEnvironment(): void {
   if (envTex) return;
   try {
-    envTex = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), 0.04).texture;
+    const pageRoom = new RoomEnvironment(renderer); pageRoom.position.y = 0; /* the page's three r170 (pre-r183) builds the room at the origin */ envTex = new PMREMGenerator(renderer).fromScene(pageRoom, 0.04).texture;
   } catch (e) {
     console.warn("environment:", e instanceof Error ? e.message : String(e));
   }
