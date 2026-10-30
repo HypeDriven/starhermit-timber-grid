@@ -434,11 +434,12 @@ export function applyLook(next: Look, force = false): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
   // High threshold: only the HDR clear effects and hot highlights bloom.
-  renderer.bloom = next.bloom ? { strength: 0.6, radius: 0.45, threshold: 0.95, resolution: next.budget.bloomRes } : null;
+  // the r170 page's UnrealBloomPass(0.6, 0.45, 0.95): bloom model r176 with its unsquared strength
+  renderer.bloom = next.bloom ? { model: "r176", strength: 0.6, radius: 0.45, threshold: 0.95, resolution: next.budget.bloomRes } : null;
   // The browser's grade ShaderPass after OutputPass: a gentle S-curve, a touch
   // more saturation, warm highlights and cool shadows, a soft vignette.
   renderer.grade = next.grade ? {
-    space: "display", contrast: 0.16, saturation: 1.08,
+    space: "display", contrastCurve: "s", contrast: 0.22, saturation: 1.08,
     shadows: [0.97, 0.98, 1.03], highlights: [1.04, 1.0, 0.95], split: [0.2, 0.8],
     vignette: { amount: 0.24, inner: 0.38, outer: 0.85 },
   } : null;
