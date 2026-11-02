@@ -663,7 +663,7 @@ export function update(dtRaw: number): void {
       motePos[i * 3 + 1] = moteBase[i * 3 + 1]! + Math.sin(clock * 0.33 + ph * 1.7) * 0.25;
       motePos[i * 3 + 2] = moteBase[i * 3 + 2]! + Math.cos(clock * 0.17 + ph) * 0.4;
     }
-    const attr = motes.geometry.getAttribute("position")!;
+    const attr = (motes.geometry.getAttribute("position") as BufferAttribute);
     attr.array = motePos;
     attr.needsUpdate = true;
     ghostMesh.position.y = (0.025 * (1 + Math.sin(clock * 3.2))) / 2;
