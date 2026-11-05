@@ -23,7 +23,8 @@ export function loadSfx(): void {
 function sample(name: Name, bus: Bus = "effects"): boolean {
   const clip = clips.get(name);
   if (!clip) return false;
-  try { playClip(clip, { bus }); return true; } catch { clips.delete(name); return false; }
+  try { playClip(clip, { bus }); } catch { /* the mixer is full this frame: skip it */ }
+  return true;
 }
 
 function blip(freq: number, dur: number, gainVal: number, type: "sine" | "square" | "sawtooth" | "triangle" = "sine", bus: Bus = "effects"): void {

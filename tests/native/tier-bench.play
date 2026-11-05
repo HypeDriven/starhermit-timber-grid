@@ -1,0 +1,36 @@
+# A ranked Challenge (Tight Bench) placed by keyboard (H hint, Enter place), for tools/engine-tier-bench.mjs.
+# viewport 1280x800@1
+until 300 Play
+click Play
+until 60 Challenge
+click Challenge
+until 60 Tight Bench — Reach 150 points in only 10 placements.
+click Tight Bench — Reach 150 points in only 10 placements.
+until 60 Moves left: 10
+frames 120
+measure start
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+key KeyH 2
+key Enter 2
+frames 65
+measure stop

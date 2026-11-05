@@ -121,7 +121,7 @@ Actions are declared in `starhermit.txt` (`control.*` keys, `engine.gamepad.*` p
 
 ### Localization and language
 
-- Every player-facing string ships in the nine StarHermit locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) plus Simplified Chinese (zh) from the original release: `src/strings.js` (game strings, read by `t()` in `native/i18n.ts`) and `src/sh-i18n.js` (platform-control strings: sign-in, invite, the leaderboard line; zh carries its own copies). Content data stays English and is named at draw time.
+- Every player-facing string ships in the nine StarHermit locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) plus Simplified Chinese (zh) from the original release: `assets/strings.json` (game strings, read by `t()` in `native/i18n.ts`) and the engine's `starhermit.*` (platform-control strings: sign-in, invite, the leaderboard line; zh carries its own copies). Content data stays English and is named at draw time.
 - The language is the runtime's interface language (`preferences().language`: the player's choice in Options, else the device's), mapped to the nearest supported locale (`en-AU → en-GB`, `es-MX → es-419`, `fr-CA`, `zh-* → zh`); a change relabels everything on the next frame (the UI is rebuilt every frame) and the round keeps running. The game no longer has its own language select.
 - `tests/i18n.test.js` checks every key the native client uses in every locale, with matching placeholders.
 
@@ -150,7 +150,7 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 | Look | Low | Balanced | High | Ultra |
 |---|---|---|---|---|
 | Shading | Lambert | Standard | Physical (clearcoat pieces) | Physical |
-| Shadows (map, held to the level's cap) | off | 1024 | 2048 | 4096 |
+| Shadows (the level's map size) | off | 1024 | 2048 | 4096 |
 | Ambient occlusion | off | off | on (8 samples, ½ res) | high (16, full) |
 | Bloom / grade / reflections / detail / ambient motion | off | on | on | on |
 | Anti-aliasing | off | FXAA | SMAA | MSAA |
@@ -184,7 +184,7 @@ The game is an engine script game: `starhermit.txt` names `engine.entry=native/m
 - `src/progress.js`: progression defaults, the two-device merge, and the migration of the browser build's cloud save and settings keys.
 - `native/main.ts`: lifecycle, the state machine (title → mode select → setup → active ↔ paused → results), placement flow, input wiring.
 - `native/screens.ts`: the status bar, rails, tray, toast and cards in `starhermit:ui`; `native/style.ts` registers `assets/ui-style.json` (the browser CSS, `tools/ui-style.css`, converted with `npm run css`) and the theme.
-- `native/render.ts` (+ `rounded.ts`, `quality.ts`): the bench on `starhermit:scene`, the look per graphics level, picking by a ray against the board plane.
+- `native/render.ts` (+ `quality.ts`): the bench on `starhermit:scene`, the look per graphics level, picking by a ray against the board plane.
 - `native/audio.ts`: the `sfx/*.opus` one-shots through the engine mixer (interface sounds on the `interface` bus, events on `effects`, the 55 Hz ambience bed on `music`), with synthesized fallbacks while a clip loads.
 - `native/platform.ts`: saves, settings, device records, achievements, leaderboards, invite link.
 - `native/i18n.ts`: the locale and `t()` / `ts()`.

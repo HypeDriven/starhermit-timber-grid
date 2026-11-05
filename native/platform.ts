@@ -9,10 +9,9 @@
 //   account); the browser build's settings keys are migrated and removed;
 // - device-only records (ranked rounds, play days, the daily round in
 //   progress, funnel events) are `storage`;
-// - ranked scores go to the high-score board through score-script.js: a
-//   practice session whose socket carries {type:'result', scores}, as the
-//   JS SDK's submitScores did.
-import { connectGame, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile, sessions } from "starhermit:platform";
+// - ranked scores go to the high-score board through score-script.js
+//   (leaderboards.submitScore).
+import { inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, profile } from "starhermit:platform";
 import { saves, settings, storage } from "starhermit:storage";
 import type { JsonValue } from "starhermit:engine";
 import {
@@ -177,30 +176,11 @@ async function highScoreBoard(): Promise<{ id: string } | null> {
 
 /** Signed in only: post a ranked round's score through score-script.js; { posted, rank }. */
 export async function postLeaderboard(score: number): Promise<{ posted: boolean; rank: number | null }> {
-  const me = player();
-  if (!me) return { posted: false, rank: null };
-  let accepted: string[] = [];
+  if (!player()) return { posted: false, rank: null };
   try {
-    const sessionId = await sessions.practice();
-    const socket = connectGame(sessionId);
-    accepted = await new Promise<string[]>((resolve) => {
-      const done = setTimeout(() => resolve([]), 15000);
-      socket.on("open", () => { socket.sendCommand({ type: "result", scores: { "high-score": score } }); });
-      socket.on("game", (data) => {
-        const d = data as { type?: string; accepted?: string[] } | null;
-        if (d && d.type === "result-ack") { clearTimeout(done); resolve(Array.isArray(d.accepted) ? d.accepted : []); }
-      });
-      socket.on("stopped", () => { clearTimeout(done); resolve([]); });
-    }).finally(() => socket.close());
+    const r = await leaderboards.submitScore("high-score", score);
+    return { posted: r.accepted, rank: r.rank };
   } catch { return { posted: false, rank: null }; }
-  if (!accepted.includes("high-score")) return { posted: false, rank: null };
-  try {
-    const board = await highScoreBoard();
-    if (!board) return { posted: true, rank: null };
-    const r = await leaderboards.entries(board.id, { pageSize: 100 });
-    const mine = r.items.find((e) => e.userId === me.userId);
-    return { posted: true, rank: mine ? mine.rank : null };
-  } catch { return { posted: true, rank: null }; }
 }
 
 /** The platform's high-score board (top 20, players by display name), or null. */

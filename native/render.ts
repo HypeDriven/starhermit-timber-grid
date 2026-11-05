@@ -5,7 +5,7 @@
 // snapshots and never mutates rules state.
 //
 // What changed from three.js, and why:
-// - RoundedBoxGeometry (an addon) is rounded.ts.
+// - RoundedBoxGeometry (an addon) is the engine's.
 // - The EffectComposer chain (GTAO, UnrealBloom, the grade ShaderPass, SMAA /
 //   FXAA / MSAA) is renderer.ao / bloom / grade / antialias; the grade's GLSL
 //   is the built-in display-space grade with the same curve, tints and vignette.
@@ -17,7 +17,7 @@
 // - Camera view offsets are not used (the aspect is set to the window's): the camera
 //   is moved and pulled back until the board fits the free part of the window.
 import {
-  ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, Color,
+  RoundedBoxGeometry, ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, Color,
   DataTexture, DirectionalLight, Fog, Group, HemisphereLight, InstancedMesh, Matrix4,
   Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial,
   PCFSoftShadowMap, PMREMGenerator, PerspectiveCamera, RoomEnvironment, PlaneGeometry, Points, PointsMaterial,
@@ -26,7 +26,6 @@ import {
 import type { Material, MaterialHooks, Texture } from "starhermit:scene";
 import { N } from "../src/rules.js";
 import { MOTE_MAX, chipCap, type Look } from "./quality.ts";
-import { roundedBox } from "./rounded.ts";
 
 export interface Theme {
   id: string; bench: string; board: string; boardAlt: string; grid: string; piece: string; pieceAlt: string;
@@ -96,7 +95,7 @@ const hemi = new HemisphereLight(0xfff4e6, 0x3a2a1c, 0.55);
 
 const cs = FRAMING.cellSize - FRAMING.cellGap;
 const plainBox = new BoxGeometry(cs, FRAMING.cellHeight, cs);
-const slabGeos = { plain: new BoxGeometry(N + 5, 0.6, N + 5), detailed: roundedBox(N + 5, 0.6, N + 5, 2, 0.12) };
+const slabGeos = { plain: new BoxGeometry(N + 5, 0.6, N + 5), detailed: new RoundedBoxGeometry(N + 5, 0.6, N + 5, 2, 0.12) };
 const benchGroup = new Group();
 let slab: Mesh;
 let cellMesh: InstancedMesh;
@@ -235,8 +234,8 @@ function buildAssets(): boolean {
   floorTex.repeat.set(5, 14);
   grainNormal = b.bump ? grainNormals(g, b.texture, b.texture / 64) : null;
 
-  geos.cell = roundedBox(cs, FRAMING.cellHeight, cs, b.cellSeg, LOOK.cellRadius);
-  geos.piece = roundedBox(cs, FRAMING.cellHeight, cs, b.pieceSeg, LOOK.pieceRadius);
+  geos.cell = new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, b.cellSeg, LOOK.cellRadius);
+  geos.piece = new RoundedBoxGeometry(cs, FRAMING.cellHeight, cs, b.pieceSeg, LOOK.pieceRadius);
   mats.slab = {
     plain: woodMat({ roughness: 0.8, metalness: 0.05 }),
     detailed: woodMat({ roughness: 0.78, map: woodTex, bump: 0.6, envMapIntensity: 0.5 }),
@@ -311,7 +310,7 @@ function build(): void {
 
   // Detailed tier: a raised frame around the board and a workshop floor.
   const rimLen = N + LOOK.rimWidth * 2 + 0.1;
-  rims = new InstancedMesh(roundedBox(rimLen, LOOK.rimHeight, LOOK.rimWidth, 2, 0.06), new MeshBasicMaterial(), 4);
+  rims = new InstancedMesh(new RoundedBoxGeometry(rimLen, LOOK.rimHeight, LOOK.rimWidth, 2, 0.06), new MeshBasicMaterial(), 4);
   const edge = N / 2 + 0.05 + LOOK.rimWidth / 2;
   const rimY = -0.12 + LOOK.rimHeight / 2;
   ([[0, edge, 0], [0, -edge, 0], [edge, 0, PI / 2], [-edge, 0, PI / 2]] as const).forEach(([x, z, r], i) => {
@@ -428,14 +427,15 @@ export function applyLook(next: Look, force = false): void {
     hemi.intensity = 0.55;
   }
   // Post effects, as the browser's composer chain per preset.
-  renderer.ao = next.ao === "off" ? null : {
+  const full = !!next.ao && next.ao.resolution >= 1; // the engine's "high": full-resolution AO
+  renderer.ao = !next.ao ? null : {
     blendIntensity: 0.75, radius: 0.55, distanceExponent: 1.2, thickness: 1.0, scale: 1.0,
-    samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+    samples: next.ao.samples, resolution: next.ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: next.ao.denoiseSamples, radiusExponent: 2 },
   };
   // High threshold: only the HDR clear effects and hot highlights bloom.
   // the r170 page's UnrealBloomPass(0.6, 0.45, 0.95): bloom model r176 with its unsquared strength
-  renderer.bloom = next.bloom ? { model: "r176", strength: 0.6, radius: 0.45, threshold: 0.95, resolution: next.budget.bloomRes } : null;
+  renderer.bloom = next.bloom === null ? null : { model: "r176", strength: 0.6, radius: 0.45, threshold: 0.95, resolution: next.bloom };
   // The browser's grade ShaderPass after OutputPass: a gentle S-curve, a touch
   // more saturation, warm highlights and cool shadows, a soft vignette.
   renderer.grade = next.grade ? {

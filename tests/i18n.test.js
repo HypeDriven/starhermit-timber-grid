@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { STRINGS, LOCALES } from '../src/strings.js';
 import * as content from '../src/content.js';
 
+const STRINGS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
+const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 const ALL = [...LOCALES, 'zh'];
 const code = readdirSync(new URL('../native/', import.meta.url)).filter((f) => f.endsWith('.ts'))
   .map((f) => readFileSync(new URL('../native/' + f, import.meta.url), 'utf8')).join('\n');
@@ -47,10 +48,8 @@ test('non-English locales are translated', () => {
     assert.ok(same.length < 12, `${loc}: ${same.join(', ')}`);
   }
 });
-test('platform-control strings (ts) exist in every locale', async () => {
-  const { SH_STRINGS } = await import('../src/sh-i18n.js');
-  const keys = [...new Set([...code.matchAll(/\bts\("([A-Za-z0-9]+)"/g)].map((m) => m[1]).concat(['lbPosting', 'lbRank', 'lbPosted', 'lbNotPosted']))];
+test('zh carries its own account strings (the engine has nine locales)', () => {
+  const keys = [...new Set([...code.matchAll(/\bts\("([A-Za-z0-9]+)"/g)].map((m) => m[1]).concat(['leaderboardPosting', 'leaderboardRank', 'leaderboardPosted', 'leaderboardNotPosted']))];
   assert.ok(keys.length >= 6, keys.join(','));
-  for (const loc of LOCALES) assert.deepEqual(keys.filter((k) => typeof SH_STRINGS[loc][k] !== 'string'), [], loc);
-  assert.deepEqual(keys.filter((k) => typeof STRINGS.zh[k] !== 'string'), [], 'zh');
+  assert.deepEqual(keys.filter((k) => typeof STRINGS.zh[`starhermit.${k}`] !== 'string'), [], 'zh');
 });

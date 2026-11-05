@@ -104,10 +104,8 @@ function piecePreviewSize(shape: [number, number][], cell: number): { w: number;
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; wide: boolean; shortLand: boolean; narrow: boolean; panelW: number }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = (f.width - sa.left - sa.right) / sc, lh = (f.height - sa.top - sa.bottom) / sc;
+  const v = ui.viewport!();
+  const sc = v.scale, lw = v.width, lh = v.height;
   const shortLand = lw > lh && lh <= 500;
   return { lw, lh, sc, wide: lw >= 1024, shortLand, narrow: lw < 720 && !shortLand, panelW: Math.min(480, lw * 0.94) };
 }
@@ -321,7 +319,7 @@ function drawOverlay(L: Layout): void {
         if (!platform.signedIn() && menuButton(ts("signIn"), false, "signin")) void requestSignIn().catch(() => undefined);
         const link = platform.inviteLink();
         if (link && menuButton(ts("invite"), false, "invite")) {
-          try { clipboard.writeText(link); toast(ts("copied")); } catch { toast(ts("copyFail", { url: link })); }
+          try { clipboard.writeText(link); toast(ts("inviteCopied")); } catch { toast(ts("inviteLink", { link })); }
         }
       });
       break;

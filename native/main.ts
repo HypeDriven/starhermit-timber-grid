@@ -5,7 +5,7 @@
 // setup → active ↔ paused → results; the rules, content and session layer
 // are the shared src/rules.js, src/content.js and src/session.js. Screens
 // are starhermit:ui (screens.ts), the bench starhermit:scene (render.ts).
-import { frame, onRender, onResume, onStart, onSuspend, onUpdate, preferences, onPreferencesChange } from "starhermit:engine";
+import { frame, levelSettings, onRender, onResume, onStart, onSuspend, onUpdate, preferences, onPreferencesChange } from "starhermit:engine";
 import { onAction, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded } from "starhermit:platform";
@@ -98,10 +98,9 @@ onResume(() => { /* stays paused; the pause card resumes */ });
 let lookKey = "";
 function applyLook(): void {
   const f = frame();
-  const key = `${f.quality}:${f.levelIndex}`;
-  if (key === lookKey) return;
-  lookKey = key;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  if (f.level === lookKey) return;
+  lookKey = f.level;
+  render.applyLook(lookFor(levelSettings(f.level)));
 }
 
 // ------------------------------------------------------------------ screens
@@ -429,11 +428,11 @@ function finishRound(): void {
 
   // Signed in, a ranked round also posts its score to the StarHermit
   // high-score board; the results line fills in with the player's rank there.
-  const results: Overlay = { kind: "results", won, lb: sess.ranked && platform.signedIn() ? { key: "lbPosting" } : null };
+  const results: Overlay = { kind: "results", won, lb: sess.ranked && platform.signedIn() ? { key: "leaderboardPosting" } : null };
   if (results.kind === "results" && results.lb) {
     platform.postLeaderboard(s.score).then((r) => {
-      results.lb = !r.posted ? { key: "lbNotPosted" } : r.rank ? { key: "lbRank", vars: { rank: r.rank } } : { key: "lbPosted" };
-    }, () => { results.lb = { key: "lbNotPosted" }; });
+      results.lb = !r.posted ? { key: "leaderboardNotPosted" } : r.rank ? { key: "leaderboardRank", vars: { rank: r.rank } } : { key: "leaderboardPosted" };
+    }, () => { results.lb = { key: "leaderboardNotPosted" }; });
   }
   show(results, "results");
   render.setGhost(null);
