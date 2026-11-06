@@ -6,7 +6,7 @@
     "cover.jpg": {"sha256": "3171bf58c2701f01eff491b02ae2407ed09a696973e2a5fe4526c5d8b65c754c", "size": 196210},
     "coverart.png": {"sha256": "ededd455358a168f2dbd96eadb9fd9ebba81146fb77aa9bca4d811d13171abd2", "size": 481916},
     "icon.png": {"sha256": "123f37aa4b599a0b2dab03225fac7ea798f7880ab170883a14abee3419f5c132", "size": 4315},
-    "index.html": {"sha256": "86c67b09aedd54de6fb3a7acf6599d29fdeb09a7a5edf2814a3c6f6d854f7a06", "size": 1936},
+    "index.html": {"sha256": "641da255f4fbaba845b2a9e3d6330a96881addefc4d90c377758bcabcf497d00", "size": 1936},
     "native/audio.ts": {"sha256": "305f3f473f109ce823ae073f6dfd553a92f568e24a377dda1f486e2f63464e01", "size": 4116},
     "native/i18n.ts": {"sha256": "a58b59fe2aa0a8daddb18bf14b2a25ce98ef2f972b62dc46c952f1334a7d7f08", "size": 1440},
     "native/main.ts": {"sha256": "fa4f4e60bb1b436ad6c5f872e2e498837e2ba95143e5dca8d67cf2d993aeb0fc", "size": 22139},
@@ -31,12 +31,12 @@
     "sfx/place-thunk.opus": {"sha256": "794db1327918ade0778bfbe3e21019fcc2af0eb4f217d3da009a8f4ee401a03a", "size": 12247},
     "sfx/undo-swipe.opus": {"sha256": "d60eaf2744df879b097d8ba7455e6c5dbfac3523f5989fa492d9925575efde25", "size": 12343},
     "sfx/win-fanfare.opus": {"sha256": "dc0ee894790fdb01c744b7874ba44d23959fe9bec3e5250259deeaa07c823cb3", "size": 38208},
-    "spec.md": {"sha256": "42a9006e36cd8b1025953f401a98a7e2629a2835a026c820b99c6293658e37e5", "size": 27957},
+    "spec.md": {"sha256": "ca56c89819950274dd01ac2360ac0373362cca951d08ba930529730089c16006", "size": 27957},
     "src/content.js": {"sha256": "f73e69c1ecaedc1449b93e363d394be7af213bc08eec126725463fc45f6d690b", "size": 5088},
     "src/progress.js": {"sha256": "a785a306846ed034d2aeda2f33fb67c761570bd20ca4f218956e819da9ba28a4", "size": 5069},
     "src/rules.js": {"sha256": "5ef794c27c404488a53b801a1932f2e6d34f9f6e9cf5a16c83af52acae5f3977", "size": 11441},
     "src/session.js": {"sha256": "845073211bd88895858a7f3d559f058e0a1b2c2284b1b91b6464132304be2111", "size": 4376},
-    "starhermit.txt": {"sha256": "442673be6e1023846626eb0c1aabd89fd45afd82d9ef63e426d59b904f17f926", "size": 1776}
+    "starhermit.txt": {"sha256": "906c30702051391914b0b53e99b5cf1909d6346e7134c2b5dd29684083614f0d", "size": 1776}
   },
   "excluded": ["node_modules/", "package.json", "server.js", "tests/", "tools/", "tsconfig.json"],
   "format": 1
