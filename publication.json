@@ -1,0 +1,103 @@
+{
+  "game": {
+    "id": "9b75de9b-6ed0-4228-ac68-b8dcb550af60",
+    "displayName": "Timber Grid",
+    "hosting": {
+      "hostingEnabled": true,
+      "hostedUrl": "https://9b75de9b-6ed0-4228-ac68-b8dcb550af60.starhermit.com/index.html",
+      "deployStatus": "live",
+      "pinnedCommitSha": null,
+      "deployedCommitSha": null,
+      "deployError": null,
+      "deployedAt": "2026-11-12T08:18:41.593215+00:00",
+      "externalLaunchUrl": null,
+      "engineVersion": "1.38.0",
+      "deployWarning": null
+    }
+  },
+  "publishedAt": "2026-11-12T08:18:46.513Z",
+  "sourceCommit": "dddcbdacebbe2764bac97328ff3f751b33ce3d8e",
+  "bytesReceived": 1706147,
+  "archiveSha256": "cc7beb3b89fea4829840cf3839290fef4ee0d5940b621d8d292134f8d5633cdd",
+  "indexSha256": "3ce1895835ee18e51dacca7eb58e028b18d0e194e9167110f7a330c4298a9675",
+  "result": {
+    "clientPublished": true,
+    "serverImageLoaded": false,
+    "imageDigest": null,
+    "bytesReceived": 1706147,
+    "mode": "replace",
+    "filesRemoved": 0,
+    "engineVersion": "1.38.0",
+    "deployWarning": null
+  },
+  "liveVerification": {
+    "at": "2026-11-12T08:18:46.513Z",
+    "files": [
+      {
+        "file": "starhermit-files.json",
+        "sha256": "3ce1895835ee18e51dacca7eb58e028b18d0e194e9167110f7a330c4298a9675",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Hebrew.ttf",
+        "sha256": "773cfa5a08af83ed9d7437ace1b50fcecfa89fbb3324ebcdb3b51737746ad34c",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Japanese.otf",
+        "sha256": "bba4a5d415b2cf3f82078da0c79e88cd28980b09c95a21009830a47753849c81",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Khmer.ttf",
+        "sha256": "ad33538928675af650ceb504fd23634006ac49b1306bcc3d6328c5d1b10d6c3f",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/SimplifiedChinese.otf",
+        "sha256": "2098fb6433daae0f14b8946ad538a55f190ba43bdee3fdf84b6527c14a848508",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Tamil.ttf",
+        "sha256": "86ccd071922326f81f77d852d13a1a11a60b05dec8df58e0da16023621b79cbc",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/TraditionalChinese.otf",
+        "sha256": "b9003fcd3c4780b8e2fd02e8e309b4e4aae809f0d8223f7338f2e82f63398c55",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/common.json",
+        "sha256": "e0c3672532d36edda93ef34c910efa813cbf4d5c2bcf5191425f1ffa24d9bc01",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/fonts.json",
+        "sha256": "5cbab3a9cd090c54948fe2f65ec478347194710de032e5a38e8c288070b3b353",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/locales.json",
+        "sha256": "9b3cd2cb1d0344977b017ae20cc3fb12eee45ddce3bf88ac25a732e48c3d382f",
+        "status": 200
+      },
+      {
+        "file": "assets/strings.json",
+        "sha256": "cbf1e27b29929cd7ef3b67d448ae1d5674510fad1f4cd8f3c251b383ec841feb",
+        "status": 200
+      },
+      {
+        "file": "index.html",
+        "sha256": "641da255f4fbaba845b2a9e3d6330a96881addefc4d90c377758bcabcf497d00",
+        "status": 200
+      },
+      {
+        "file": "starhermit.txt",
+        "sha256": "4b4b0ccfbe6fb9334b3f1bd0d5fbac6f376611047c36b3d377a6e51436f12c4d",
+        "status": 200
+      }
+    ]
+  }
+}
