@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Timber Grid on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The controller and its state machine are the
@@ -544,4 +545,8 @@ onUpdate((dt) => {
   render.update(dt);
   if (app.toast && performance.now() > app.toast.until) app.toast = null;
 });
-onRender(() => { drawScreens(); });
+onRender(__l10nRender(() => { drawScreens(); }));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

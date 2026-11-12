@@ -1,3 +1,6 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM shell as starhermit:ui, built every frame: the
 // status bar (brand, objective, score, combo, Pause, the player), the game
 // region with its rails (objective, journey, the lesson card; Hint, Undo, Fit
@@ -7,7 +10,16 @@
 // by the window's logical size: wide (rails as side columns), compact (the
 // lesson across the top, the actions at the bottom) and short landscape
 // (side columns, no brand or player chip, a slim tray).
-import { frame, openMenu, clipboard } from "starhermit:engine";
+// The browser build's DOM shell as starhermit:ui, built every frame: the
+// status bar (brand, objective, score, combo, Pause, the player), the game
+// region with its rails (objective, journey, the lesson card; Hint, Undo, Fit
+// board), the piece tray, the toast, and the cards (title, play modes,
+// setups, Score Chase, pause, results, settings, help) as modal dialogs over
+// the bench. The browser's media queries are the three layouts below, picked
+// by the window's logical size: wide (rails as side columns), compact (the
+// lesson across the top, the actions at the bottom) and short landscape
+// (side columns, no brand or player chip, a slim tray).
+import { frame, clipboard } from "starhermit:engine";
 import { bindingLabel } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -59,11 +71,11 @@ const PAL_KEYS: Record<string, string> = { standard: "palStandard", deuteranopia
 
 // ------------------------------------------------------------------ widgets
 function menuButton(label: string, primary = false, id?: string): boolean {
-  const u = ui.style("menu-btn", primary && "menu-btn.primary");
+  const u = ui.style(__l10nStyle("menu-btn"), __l10nStyle(primary && "menu-btn.primary"));
   return (id ? u.id(id) : u).button(label);
 }
 function chipButton(label: string, id: string, extra?: string): boolean {
-  return ui.style("chip-btn", extra).id(id).button(label);
+  return ui.style(__l10nStyle("chip-btn"), __l10nStyle(extra)).id(id).button(label);
 }
 const lastHeight = new Map<string, number>();
 let openedAt = new Map<string, number>();
@@ -92,7 +104,7 @@ function card(key: string, title: string, layout: Layout, build: () => void, bac
   if (!open && back && openedAt.get(key) !== f.frame) back();
 }
 function para(text: string, width: number, cls?: string): void {
-  (cls ? ui.style(cls) : ui).paragraph(text, width);
+  (cls ? ui.style(__l10nStyle(cls)) : ui).paragraph(text, width);
 }
 
 /** A tray piece's shape: the browser's grid of 16 px cells, 3 px apart. */
@@ -130,12 +142,12 @@ export function drawScreens(): void {
       const max = L.lw - 19.2;
       // A label keeps one line: a chip wider than the bar wraps as a paragraph (the browser's flex-wrap).
       items.push(w <= max
-        ? { w, build: () => { ui.style("hud-chip").label(text); } }
-        : { w: max, build: () => { ui.style("hud-chip").paragraph(text, max - 19.2); } });
+        ? { w, build: () => { ui.style(__l10nStyle("hud-chip")).label(text); } }
+        : { w: max, build: () => { ui.style(__l10nStyle("hud-chip")).paragraph(text, max - 19.2); } });
     };
     if (!L.shortLand) {
       const brand = t("title");
-      items.push({ w: ui.measureText(brand, { style: "brand" }).width / L.sc, build: () => { ui.style("brand").label(brand); }, brand: true });
+      items.push({ w: ui.measureText(brand, { style: "brand" }).width / L.sc, build: () => { ui.style(__l10nStyle("brand")).label(brand); }, brand: true });
     }
     if (s) {
       chip(objectiveText());
@@ -224,15 +236,15 @@ export function drawScreens(): void {
     if (showObjective || showJourney || lesson) {
       leftRect = ui.place("rail-left", { anchor: "top-start", x: 0, y: statusH }, () => {
         const inner = railW - 19.2 - 22.4;
-        if (showObjective) ui.column("rail-objective", () => { ui.style("rail-title").heading(t("objective")); ui.style("rail-text").paragraph(objectiveText(), inner); }, { style: "rail-block", width: railW - 19.2 });
-        if (showJourney) ui.column("rail-journey", () => { ui.style("rail-title").heading(t("journey")); ui.style("rail-text").label(`${t("stage")} ${app.progression.journeyStage} / ${content.STAGES.length}`); }, { style: "rail-block", width: railW - 19.2 });
+        if (showObjective) ui.column("rail-objective", () => { ui.style(__l10nStyle("rail-title")).heading(t("objective")); ui.style(__l10nStyle("rail-text")).paragraph(objectiveText(), inner); }, { style: "rail-block", width: railW - 19.2 });
+        if (showJourney) ui.column("rail-journey", () => { ui.style(__l10nStyle("rail-title")).heading(t("journey")); ui.style(__l10nStyle("rail-text")).label(`${t("stage")} ${app.progression.journeyStage} / ${content.STAGES.length}`); }, { style: "rail-block", width: railW - 19.2 });
         if (lesson) {
           ui.column("tutorial-card", () => {
             const title = `${app.tutorialStep + 1}/${content.TUTORIAL_STEPS.length} — ${tutTitle(lesson)}`;
             ui.label(title, { weight: "700" });
-            if (!app.tutorialCollapsed) ui.style("tutorial-text").paragraph(tutText(lesson), inner);
+            if (!app.tutorialCollapsed) ui.style(__l10nStyle("tutorial-text")).paragraph(tutText(lesson), inner);
             // the card can be tucked away so it never blocks board cells
-            if (ui.style("chip-btn", "tutorial-toggle").id("lesson-toggle").button(app.tutorialCollapsed ? t("showLesson") : t("hideLesson"))) app.tutorialCollapsed = !app.tutorialCollapsed;
+            if (ui.style(__l10nStyle("chip-btn"), __l10nStyle("tutorial-toggle")).id("lesson-toggle").button(app.tutorialCollapsed ? t("showLesson") : t("hideLesson"))) app.tutorialCollapsed = !app.tutorialCollapsed;
           }, { style: "tutorial-card", width: railW - 19.2 });
         }
       }, { style: "rail", spacing: 9.6, width: railW });
@@ -258,7 +270,7 @@ export function drawScreens(): void {
   // ---- toast
   if (app.toast) {
     ui.place("toast", { anchor: "bottom", x: 0, y: trayH + 16 }, () => {
-      ui.style("toast").paragraph(app.toast!.text, Math.min(34 * 16, L.lw * 0.92) - 35.2);
+      ui.style(__l10nStyle("toast")).paragraph(app.toast!.text, Math.min(34 * 16, L.lw * 0.92) - 35.2);
     });
   }
 
@@ -350,8 +362,8 @@ function drawOverlay(L: Layout): void {
       }
       card("setup", title, L, () => {
         para(t("rulesSummary"), inner);
-        for (const l of lines) if (l) ui.style("list-item").paragraph(`• ${l}`, inner - 19.2);
-        ui.style("ranked-line").label(t("ranked"));
+        for (const l of lines) if (l) ui.style(__l10nStyle("list-item")).paragraph(`• ${l}`, inner - 19.2);
+        ui.style(__l10nStyle("ranked-line")).label(t("ranked"));
         if (menuButton(t("start"), true, "start")) start();
         if (menuButton(t("back"), false, "back")) showModeSelect();
       }, showModeSelect);
@@ -378,25 +390,25 @@ function drawOverlay(L: Layout): void {
       const board = platform.getLeaderboard();
       const prog = app.progression;
       card("scores", t("scores"), L, () => {
-        ui.style("section-title").heading(t("leaderboard"));
+        ui.style(__l10nStyle("section-title")).heading(t("leaderboard"));
         if (board.length) {
           ui.grid("local-board", () => {
-            for (const h of ["#", t("score"), t("colMode"), t("colSeed"), t("player")]) ui.style("cell-strong").label(h);
+            for (const h of ["#", t("score"), t("colMode"), t("colSeed"), t("player")]) ui.style(__l10nStyle("cell-strong")).label(h);
             board.slice(0, 10).forEach((e, i) => {
-              for (const v of [String(i + 1), String(e.score), t(e.mode), String(e.seed), e.player ? displayName(e.player) : "—"]) ui.style("cell").label(v);
+              for (const v of [String(i + 1), String(e.score), t(e.mode), String(e.seed), e.player ? displayName(e.player) : "—"]) ui.style(__l10nStyle("cell")).label(v);
             });
           }, { columns: ["auto", "auto", { fr: 1 }, "auto", { fr: 1 }], gap: 0, width: inner, rowStyle: "score-row" });
         } else ui.label("—");
         const hosted = app.hostedBoard;
         if (hosted && hosted.length) {
-          ui.style("section-title").heading(t("globalBoard"));
+          ui.style(__l10nStyle("section-title")).heading(t("globalBoard"));
           ui.grid("global-board", () => {
-            for (const h of ["#", t("player"), t("score")]) ui.style("cell-strong").label(h);
-            for (const e of hosted) for (const v of [String(e.rank), displayName(e.name), String(e.score)]) ui.style("cell").label(v);
+            for (const h of ["#", t("player"), t("score")]) ui.style(__l10nStyle("cell-strong")).label(h);
+            for (const e of hosted) for (const v of [String(e.rank), displayName(e.name), String(e.score)]) ui.style(__l10nStyle("cell")).label(v);
           }, { columns: ["auto", { fr: 1 }, "auto"], gap: 0, width: inner, rowStyle: "score-row" });
         }
-        ui.style("section-title").heading(t("achievements"));
-        for (const a of platform.ACHIEVEMENTS) ui.style("list-item").paragraph(`${prog.achievements[a.key] ? "✓" : "○"} ${achName(a)} — ${achDesc(a)}`, inner - 19.2);
+        ui.style(__l10nStyle("section-title")).heading(t("achievements"));
+        for (const a of platform.ACHIEVEMENTS) ui.style(__l10nStyle("list-item")).paragraph(`${prog.achievements[a.key] ? "✓" : "○"} ${achName(a)} — ${achDesc(a)}`, inner - 19.2);
       }, back, () => { if (menuButton(t("back"), false, "back")) back(); });
       break;
     }
@@ -414,18 +426,18 @@ function drawOverlay(L: Layout): void {
       const s = sess.state;
       const b = s.breakdown;
       card("results", o.won ? t("stageClear") : t("gameOver"), L, () => {
-        ui.style("reason").paragraph(`${t("reason")}: ${reasonText(s.terminalReason)}`, inner);
-        ui.style("reason").label(`${t("journey")}: ${t("stage")} ${app.progression.journeyStage} / ${content.STAGES.length}`);
-        ui.style("big-score").label(`${t("score")}: ${s.score}`);
-        if (o.lb) ui.style("reason").paragraph(ts(o.lb.key, o.lb.vars), inner);
-        ui.style("section-title").heading(t("breakdown"));
+        ui.style(__l10nStyle("reason")).paragraph(`${t("reason")}: ${reasonText(s.terminalReason)}`, inner);
+        ui.style(__l10nStyle("reason")).label(`${t("journey")}: ${t("stage")} ${app.progression.journeyStage} / ${content.STAGES.length}`);
+        ui.style(__l10nStyle("big-score")).label(`${t("score")}: ${s.score}`);
+        if (o.lb) ui.style(__l10nStyle("reason")).paragraph(ts(o.lb.key, o.lb.vars), inner);
+        ui.style(__l10nStyle("section-title")).heading(t("breakdown"));
         ui.grid("breakdown", () => {
           for (const [k, v] of [["placed", b.place], ["cleared", b.clear], ["multi", b.multi], ["combo", b.combo]] as const) {
-            ui.style("cell").label(t(k));
-            ui.style("cell").label(String(v));
+            ui.style(__l10nStyle("cell")).label(t(k));
+            ui.style(__l10nStyle("cell")).label(String(v));
           }
-          ui.style("cell-strong").label(t("total"));
-          ui.style("cell-strong").label(String(s.score));
+          ui.style(__l10nStyle("cell-strong")).label(t("total"));
+          ui.style(__l10nStyle("cell-strong")).label(String(s.score));
         }, { columns: [{ fr: 1 }, "auto"], gap: 0, width: inner, rowStyle: "score-row" });
       }, undefined, () => {
         if (menuButton(t("playAgain"), true, "again")) playAgain();
@@ -459,7 +471,7 @@ function drawOverlay(L: Layout): void {
           if (v !== st[key]) setSetting(key, v);
         }
         // Language, sound, graphics, controls and accessibility are the runtime's Options.
-        if (menuButton(`${t("runtimeOptions")} …`, false, "options")) openMenu();
+        if (menuButton(`${t("runtimeOptions")} …`, false, "options")) __l10nOptions();
       }, back, () => { if (menuButton(t("back"), true, "back")) back(); });
       break;
     }
@@ -467,7 +479,7 @@ function drawOverlay(L: Layout): void {
       const back = (): void => show(o.back, o.back?.kind === "pause" ? "paused" : app.screen);
       card("help", t("howToPlay"), L, () => {
         const help = (title: string, text: string): void => {
-          ui.column(`help-${title}`, () => { ui.style("section-title").heading(title); ui.style("help-text").paragraph(text, inner - 25.6); }, { style: "help-card", width: inner });
+          ui.column(`help-${title}`, () => { ui.style(__l10nStyle("section-title")).heading(title); ui.style(__l10nStyle("help-text")).paragraph(text, inner - 25.6); }, { style: "help-card", width: inner });
         };
         help(t("play"), t("helpPlace"));
         help(t("cleared"), t("helpClear"));
