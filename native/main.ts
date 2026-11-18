@@ -55,7 +55,7 @@ export function activeTheme(): Theme {
 function haptic(): void { if (app.settings.haptics) vibrate(12); }
 export function announce(msg: string): void { ui.announce(msg); }
 export function toast(text: string): void {
-  app.toast = { text, until: performance.now() + 2800 };
+  ui.toast!(text, { duration: 2.8, position: "bottom", offset: 16, style: "toast", dismissible: false });
   announce(text);
 }
 export function show(overlay: Overlay | null, screen?: typeof app.screen): void {

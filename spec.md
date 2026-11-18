@@ -4,7 +4,7 @@
 **Game index:** 7  
 **Genre:** Spatial puzzle  
 **Players:** 1 player; optional asynchronous score comparison  
-**Targets:** the StarHermit engine 1.39.0: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait
+**Targets:** the StarHermit engine 1.44.1: natively in the StarHermit client and in desktop and mobile browsers through the engine's web runtime, landscape and portrait
 **Rendering direction:** a 3D bench on `starhermit:scene` (ported from three.js) under an immediate-mode `starhermit:ui` interface
 
 ## 1. Product vision
@@ -178,7 +178,7 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 
 ### Client modules
 
-The game is an engine script game: `starhermit.txt` names `engine.entry=native/main.ts`, `engine.version=1.39.0`, `engine.minor=39`, `engine.capabilities=platform,storage,clipboard`.
+The game is an engine script game: `starhermit.txt` names `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, `engine.capabilities=platform,storage,clipboard`.
 
 - `src/rules.js`, `src/content.js`, `src/session.js`: pure deterministic rules (legality, scoring, seeded offers, replay hashes), versioned content (themes, 40 journey stages, challenges, tutorials, daily seed) and the command/undo/snapshot/replay-envelope layer — shared by the client, `server.js` and the Node tests, unchanged by the port.
 - `src/progress.js`: progression defaults, the two-device merge, and the migration of the browser build's cloud save and settings keys.
@@ -208,7 +208,7 @@ No module mutates rules state except through a validated session command; the re
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- `npm run package` (`tools/package-web.mjs`, `starhermit package --web .`) writes the loader `index.html` (pinned to engine 1.39.0 on wiki.starhermit.com by hash) and `starhermit-files.json`; both are committed and regenerated after every change. `.starhermitignore` leaves `tests/`, `tools/` and `server.js` out of the package. The browser build (its `index.html`, the three.js vendor copy, `starhermit-sdk.js`, `sh-language.js`, `game-options.js`, `ui-scale.js`, `browser-guard.js`, `src/gpu-level.js` and its DOM modules) was removed; it can be recovered from commit ad21ccb. The browser build had no service worker.
+- `npm run package` (`tools/package-web.mjs`, `starhermit package --web .`) writes the loader `index.html` (pinned to engine 1.44.1 on wiki.starhermit.com by hash) and `starhermit-files.json`; both are committed and regenerated after every change. `.starhermitignore` leaves `tests/`, `tools/` and `server.js` out of the package. The browser build (its `index.html`, the three.js vendor copy, `starhermit-sdk.js`, `sh-language.js`, `game-options.js`, `ui-scale.js`, `browser-guard.js`, `src/gpu-level.js` and its DOM modules) was removed; it can be recovered from commit ad21ccb. The browser build had no service worker.
 - The runtime signs the player in from the launch (StarHermit client or the page's launch token); a guest sees "Sign in with StarHermit" on the title, which opens the runtime's Account dialog (`requestSignIn`). When the session ends, a toast says progress stays on this device.
 
 ### Identity, profile and preferences
@@ -281,3 +281,11 @@ This document does **not** authorize implementation, asset production, monetizat
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `zh`, `zh-SG`, `ja-JP`, `nl-BE`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `su-ID`, `bew-ID`, `km-VN`, `ru-FI`, `ru-EE`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
+
+Toasts use native engine stacking, styling, accessibility and lifetime management.

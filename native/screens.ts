@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 // localization-runtime:attached
 import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
@@ -124,7 +125,7 @@ function layoutNow(): Layout {
 
 const pressed = new Map<number, boolean>();
 
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   const f = frame();
   const s = app.session?.state;
@@ -267,12 +268,6 @@ export function drawScreens(): void {
   regionRect = { x: 0, y: top, width: f.width, height: Math.max(0, bottom - top) };
   fitBoardTo(regionRect, [leftRect, rightRect].filter((r): r is ui.Rect => !!r), L);
 
-  // ---- toast
-  if (app.toast) {
-    ui.place("toast", { anchor: "bottom", x: 0, y: trayH + 16 }, () => {
-      ui.style(__l10nStyle("toast")).paragraph(app.toast!.text, Math.min(34 * 16, L.lw * 0.92) - 35.2);
-    });
-  }
 
   // ---- cards
   drawOverlay(L);
@@ -489,4 +484,11 @@ function drawOverlay(L: Layout): void {
       break;
     }
   }
+}
+
+export function drawScreens(): void {
+  if (!(app.overlay?.kind === "help")) { drawScreensImmediate(); return; }
+  const actions = ["up","down","left","right","piece1","piece2","piece3","next_piece","place","undo","hint","pause","camera"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }
