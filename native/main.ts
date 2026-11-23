@@ -1,3 +1,4 @@
+import { showCursor } from "./cursor.ts";
 import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Timber Grid on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
@@ -65,6 +66,7 @@ export function show(overlay: Overlay | null, screen?: typeof app.screen): void 
 
 // ------------------------------------------------------------------ boot
 onStart(() => {
+  showCursor();
   platform.initPlatform();
   app.settings = platform.loadSettings();
   app.progression = platform.loadProgression();
