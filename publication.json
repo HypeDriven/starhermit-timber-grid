@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T09:42:33.206623+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T22:50:42.631153+00:00",
+    "coverArtUpdatedAt": "2026-11-27T17:08:06.249925+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T22:50:42.620121+00:00",
+      "deployedAt": "2026-11-27T17:08:06.235618+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.51.0",
+      "engineVersion": "1.53.0",
       "deployWarning": null
     },
     "description": "Fit wooden shapes onto a nine-by-nine board and clear full rows, columns, and three-by-three regions.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T22:50:43.121Z",
-  "sourceCommit": "68406b43969d0d4af6164941d26935d84e184d7e",
-  "bytesReceived": 1722283,
-  "archiveSha256": "f4fa76c2159838f72122faf45596ea6fabf58f2d10c0cb9299a69fb588fe73e6",
+  "publishedAt": "2026-11-27T17:08:06.467Z",
+  "sourceCommit": "e5c67013188dfd30664dcf8eff886d8b8f8c3f98",
+  "bytesReceived": 1722375,
+  "archiveSha256": "01963a9a129705cfcf53fadea60f4084bbd017fedda8d5d1a7b6d93b3adf073f",
   "indexSha256": "7c302777b61e76f4c16d6262a78108c6449a2723103137e0c2016573bd1174c9",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 1722283,
+    "bytesReceived": 1722375,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.51.0",
+    "engineVersion": "1.53.0",
     "deployWarning": null
   },
   "liveVerification": {
