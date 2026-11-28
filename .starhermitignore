@@ -3,3 +3,7 @@
 tests/
 tools/
 server.js
+
+# Monolith locale tables. The game loads assets/l10n/<kind>/<locale>.json.
+assets/localization/common.json
+assets/strings.json
